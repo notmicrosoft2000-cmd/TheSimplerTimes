@@ -4,98 +4,58 @@
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <meta name="description" content="THE SIMPLER TIMES — a 1993 floppy disk that is very aware it is running on your machine. Download for Windows, macOS, and Linux.">
-  <meta name="theme-color" content="#000000">
+  <meta name="theme-color" content="#060400">
   <title>THE SIMPLER TIMES — 1993</title>
   <link rel="icon" type="image/png" href="img/windowq.png">
   <link rel="apple-touch-icon" href="img/windowq.png">
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=VT323&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=1">
+  <link rel="stylesheet" href="css/style.css?v=2">
 </head>
 <body>
 
   <noscript>
     <style>
-      #boot{display:none !important}
+      #boot,#offline{display:none !important}
       .view{opacity:1 !important; transform:none !important; display:block !important}
       .hidden{display:block !important}
-      #signalScreen,#glitchFlash,#cursor,.scanlines,.aperture,.vignette,.glass-sweep{display:none !important}
-      .menubar{display:flex !important}
+      #signalScreen,#glitchFlash,#cursor,.cursor{display:none !important}
+      .os{display:flex !important}
     </style>
   </noscript>
 
-  <div class="room" aria-hidden="true">
-    <div class="room-wall"></div>
-    <div class="room-shadow"></div>
+  <div class="boot" id="boot" aria-live="polite">
+    <pre class="boot-log" id="bootLog"></pre>
+    <div class="boot-prompt hidden" id="bootPrompt">[ ENTER ] TO BEGIN &nbsp;·&nbsp; [ POWER ] WHEN YOU ARE DONE</div>
   </div>
 
-  <div class="monitor" id="monitor">
-    <div class="monitor-screen" id="screen">
-      <div class="screen-glass">
-        <div class="screen-overlays" aria-hidden="true">
-          <div class="scanlines"></div>
-          <div class="aperture"></div>
-          <div class="vignette"></div>
-          <div class="glass-sweep"></div>
-        </div>
+  <div class="offline hidden" id="offline" aria-hidden="true">
+    <span>POWERED OFF. IT IS ONLY PRETENDING TO SLEEP.</span>
+  </div>
 
-        <div class="screen-content" id="screenContent">
-          <div class="boot" id="boot">
-            <pre class="boot-log" id="bootLog"></pre>
-            <div class="boot-prompt hidden" id="bootPrompt">[ ENTER ] TO BEGIN &nbsp;·&nbsp; [ POWER ] WHEN YOU ARE DONE</div>
-          </div>
+  <div class="os hidden" id="os" aria-hidden="true">
 
-          <div class="os" id="os" aria-hidden="true">
-            <div class="marquee" aria-hidden="true"><div class="marquee-track" id="marqueeTrack"></div></div>
+    <header class="sitehead">
+      <div class="brand">A:\&gt; THE SIMPLER TIMES <span class="dim">— 1993</span></div>
+      <nav class="menubar" aria-label="Site navigation">
+        <a class="menu-link" href="#home" data-view="home">HOME</a>
+        <a class="menu-link" href="#disk" data-view="disk">THE DISK</a>
+        <a class="menu-link" href="#bulletin" data-view="bulletin">THE BULLETIN</a>
+        <a class="menu-link" href="#mail" data-view="mail">THE INBOX</a>
+        <a class="menu-link" href="#download" data-view="download">DOWNLOAD</a>
+        <a class="menu-link ext" href="https://notmicrosoft2000-cmd.github.io/TheQuestionGame/" data-view="tqg" target="_blank" rel="noopener">THE QUESTION GAME ↗</a>
+      </nav>
+    </header>
 
-            <div class="window" id="win">
-              <div class="window-titlebar" id="titlebar">
-                <span class="wt-l">THE SIMPLER TIMES — A:\&gt; ONLINE</span>
-                <span class="wt-r">
-                  <span class="winbtn" id="btnMin" role="button" tabindex="0" title="minimize (it will not stay minimized)">[ _ ]</span>
-                  <span class="winbtn" id="btnClose" role="button" tabindex="0" title="close (it will not close)">[ X ]</span>
-                </span>
-              </div>
+    <div class="marquee" aria-hidden="true"><div class="marquee-track" id="marqueeTrack"></div></div>
 
-              <nav class="menubar" id="menubar" aria-label="Site navigation">
-                <a class="menu-link" href="#home" data-view="home">HOME</a>
-                <a class="menu-link" href="#disk" data-view="disk">THE DISK</a>
-                <a class="menu-link" href="#bulletin" data-view="bulletin">THE BULLETIN</a>
-                <a class="menu-link" href="#mail" data-view="mail">THE INBOX</a>
-                <a class="menu-link" href="#download" data-view="download">DOWNLOAD</a>
-                <a class="menu-link ext" href="https://notmicrosoft2000-cmd.github.io/TheQuestionGame/" data-view="tqg" target="_blank" rel="noopener">THE QUESTION GAME ↗</a>
-              </nav>
+    <main class="views" id="views">
 
-              <div class="window-body">
-                <aside class="records" id="records">
-                  <div class="rec-box">
-                    <div class="rec-label">RECORD</div>
-                    <div class="rec-oid">S01.E93</div>
-                    <div class="rec-status"><span class="led"></span> <span id="sigText">SIGNAL STABLE</span></div>
-                  </div>
-                  <div class="rec-box">
-                    <div class="rec-label">VISITS</div>
-                    <div class="rec-oid" id="hitCounter">000000</div>
-                  </div>
-                  <div class="rec-box">
-                    <div class="rec-label">DATE</div>
-                    <div class="rec-oid" id="recDate">1993.??.??</div>
-                  </div>
-                  <div class="rec-box">
-                    <div class="rec-label">YOUR OS</div>
-                    <div class="rec-oid" id="recOs">????</div>
-                  </div>
-                  <button class="rec-btn" id="btnPower" type="button">[ POWER ]</button>
-                </aside>
-
-                <main class="views" id="views">
-
-                  <section class="view active" id="home" data-view="home">
-                    <div class="under-construction"><span class="blink-light"></span> UNDER CONSTRUCTION <span class="blink-light"></span></div>
-                    <h1 class="glitch-title" data-text="THE SIMPLER TIMES">THE SIMPLER TIMES</h1>
-                    <p class="tagline">A 1993 floppy disk that is very aware it is running on your machine.</p>
-                    <div class="ascii-disk" id="asciiDisk" aria-hidden="true"><pre>          ╔═══════════════════════════╗
+      <section class="view active" id="home" data-view="home">
+        <h1 class="glitch-title" data-text="THE SIMPLER TIMES">THE SIMPLER TIMES</h1>
+        <p class="tagline">A 1993 floppy disk that is very aware it is running on your machine.</p>
+        <div class="ascii-disk" aria-hidden="true"><pre>          ╔═══════════════════════════╗
           ║  A:\  THE SIMPLER TIMES   ║
           ║  (no label)  ·  1.44 MB   ║
           ║  IT BOOTS ITSELF          ║
@@ -104,120 +64,109 @@
           ║ └─┘   └─┘   └─┘   └─┘    ║
           ╚═══════════════════════════╝
         </pre></div>
-                    <p class="intro">A stack of unlabeled floppy disks appears on a table at a computer fair in 1993. No vendor claims them. Nobody remembers carrying them in. <span class="hl">You take one.</span> It boots before you touch the power.</p>
-                    <div class="home-actions">
-                      <a class="btn btn-primary" href="#download">[ GET THE DISK ]</a>
-                      <a class="btn btn-ghost" href="#disk">[ WHAT IS IT ]</a>
-                    </div>
-                    <p class="foot-note">BEST VIEWED AT 640×480 · WORKS ON ANY COMPUTER · <span class="blink">NEW</span></p>
-                  </section>
-
-                  <section class="view" id="disk" data-view="disk">
-                    <h2 class="section-title"><span class="red">&gt;</span> THE DISK</h2>
-                    <div class="copy">
-                      <p>This is the game <em>The Question Game</em> keeps refusing to talk about. The prequel. The disk the questions came from.</p>
-                      <p>You install nothing. You run one file. It has its own operating system, its own files, its own questions — and it does not want to stay on the desk.</p>
-                      <p class="dim">A short text-based horror experience in the same collection as THE QUESTION GAME. The first copy was never the disk.</p>
-                      <p class="about-quote">"A:\&gt; THE DISK IS WARM"</p>
-                    </div>
-                    <h3 class="subsection-title">WHAT IT DOES TO YOUR MACHINE</h3>
-                    <ul class="feature-list">
-                      <li>▸ The window will not be fullscreen. It refuses the option entirely.</li>
-                      <li>▸ The window moves on its own. It drifts toward the edge of your screen.</li>
-                      <li>▸ If you reach for the mouse, it ejects the cursor to the far corner.</li>
-                      <li>▸ It finds out roughly where you are, and it tells you it knows.</li>
-                      <li>▸ When it decides you should look at something, it opens a page in your browser.</li>
-                      <li>▸ ESC is a mercy. Sometimes it grants it. Sometimes it is just reading your key.</li>
-                    </ul>
-                    <div class="disk-label">
-                      <div class="dl-title">DISK LABEL — A:\</div>
-                      <p>Non-system disk or disk error.<br>Replace and press any key when ready.</p>
-                      <p class="red">It is not asking you to replace the disk. It is asking if you have a better one.</p>
-                    </div>
-                  </section>
-
-                  <section class="view" id="bulletin" data-view="bulletin">
-                    <h2 class="section-title"><span class="red">&gt;</span> THE BULLETIN</h2>
-                    <p class="section-sub">Field notes from the collection. Entries append themselves. Some of them are new.</p>
-                    <div class="bulletin" id="bulletinFeed" aria-live="polite"></div>
-                  </section>
-
-                  <section class="view" id="mail" data-view="mail">
-                    <h2 class="section-title"><span class="red">&gt;</span> THE INBOX</h2>
-                    <p class="section-sub">It is waiting for your reply. It has been waiting since before you typed anything.</p>
-                    <form class="inbox" id="inboxForm" autocomplete="off">
-                      <label class="inbox-label">YOUR NAME
-                        <input type="text" id="inName" maxlength="40" placeholder="TYPE IT. IT ALREADY KNOWS.">
-                      </label>
-                      <label class="inbox-label">ONE WORD
-                        <input type="text" id="inWord" maxlength="40" placeholder="WHAT DO YOU KEEP?">
-                      </label>
-                      <button class="btn btn-primary" type="submit">[ SEND ]</button>
-                    </form>
-                    <div class="reply hidden" id="inboxReply">
-                      <div class="reply-from">FROM: THE COLLECTION</div>
-                      <pre id="replyBody"></pre>
-                    </div>
-                  </section>
-
-                  <section class="view" id="download" data-view="download">
-                    <h2 class="section-title"><span class="red">&gt;</span> DOWNLOAD</h2>
-                    <p class="section-sub">One file. No installer. It is a disk, not a program.</p>
-                    <div class="os-detect">
-                      <span class="od-label">DETECTED:</span>
-                      <span class="od-value" id="detectOs">UNKNOWN</span>
-                    </div>
-                    <div class="platforms">
-                      <article class="platform-card win">
-                        <div class="pc-head"><span class="pc-name">WINDOWS</span><span class="pc-ext">.EXE</span></div>
-                        <p>Windows 10 / 11 · 64-bit</p>
-                        <a class="btn btn-primary" href="https://github.com/notmicrosoft2000-cmd/TheSimplerTimes/releases" target="_blank" rel="noopener" data-art="windows">[ GET .EXE ]</a>
-                      </article>
-                      <article class="platform-card mac">
-                        <div class="pc-head"><span class="pc-name">MACOS</span><span class="pc-ext">.DMG</span></div>
-                        <p>macOS 12+ · Apple silicon / Intel</p>
-                        <a class="btn btn-primary" href="https://github.com/notmicrosoft2000-cmd/TheSimplerTimes/releases" target="_blank" rel="noopener" data-art="mac">[ GET .DMG ]</a>
-                      </article>
-                      <article class="platform-card linux">
-                        <div class="pc-head"><span class="pc-name">LINUX</span><span class="pc-ext">.TAR.GZ</span></div>
-                        <p>Ubuntu/Debian · SDL2 required</p>
-                        <a class="btn btn-primary" href="https://github.com/notmicrosoft2000-cmd/TheSimplerTimes/releases" target="_blank" rel="noopener" data-art="linux">[ GET LINUX ]</a>
-                      </article>
-                    </div>
-                    <div class="disk-label warn">
-                      <div class="dl-title">BEFORE YOU RUN IT</div>
-                      <p>▸ It will not run fullscreen. That is not a bug. It refuses.</p>
-                      <p>▸ It may move your window and take your mouse. That is also not a bug.</p>
-                      <p>▸ It will try to open a website in your browser. That one is this one.</p>
-                      <p class="red">▸ READ THE QUESTIONS. IT KNOWS WHEN YOU SKIP.</p>
-                    </div>
-                    <p class="foot-note">BUILDS ARE PRODUCED BY GITHUB ACTIONS AND ATTACHED TO RELEASES. <a href="https://github.com/notmicrosoft2000-cmd/TheSimplerTimes" target="_blank" rel="noopener">SEE THE REPOSITORY ↗</a></p>
-                  </section>
-
-                </main>
-              </div>
-
-              <div class="statusbar">
-                <span class="sb-l" id="statusL">A:\&gt; READY</span>
-                <span class="sb-r" id="statusR">CONNECTED 2400 BPS</span>
-              </div>
-            </div>
-          </div>
+        <p class="intro">A stack of unlabeled floppy disks appears on a table at a computer fair in 1993. No vendor claims them. Nobody remembers carrying them in. <span class="hl">You take one.</span> It boots before you touch the power.</p>
+        <div class="home-actions">
+          <a class="btn btn-primary" href="#download">[ GET THE DISK ]</a>
+          <a class="btn btn-ghost" href="#disk">[ WHAT IS IT ]</a>
         </div>
-      </div>
-    </div>
+        <p class="foot-note">BEST VIEWED AT 640×480 · WORKS ON ANY COMPUTER</p>
+      </section>
 
-    <div class="bezel-bottom">
-      <span class="brand">THE SIMPLER TIMES · MODEL 1993</span>
-      <span class="led-power" id="ledPower" aria-hidden="true"></span>
-      <button class="power-btn" id="powerBtn" type="button" aria-label="Power">⏻</button>
-    </div>
-    <div class="stand" aria-hidden="true"></div>
+      <section class="view" id="disk" data-view="disk">
+        <h2 class="section-title"><span class="red">&gt;</span> THE DISK</h2>
+        <div class="copy">
+          <p>This is the game <em>The Question Game</em> keeps refusing to talk about. The prequel. The disk the questions came from.</p>
+          <p>You install nothing. You run one file. It has its own operating system, its own files, its own questions — and it does not want to stay on the desk.</p>
+          <p class="dim">A short text-based horror experience in the same collection as THE QUESTION GAME. The first copy was never the disk.</p>
+          <p class="about-quote">"A:\&gt; THE DISK IS WARM"</p>
+        </div>
+        <h3 class="subsection-title">WHAT IT DOES TO YOUR MACHINE</h3>
+        <ul class="feature-list">
+          <li>▸ The window will not be fullscreen. It refuses the option entirely.</li>
+          <li>▸ The window moves on its own. It drifts toward the edge of your screen.</li>
+          <li>▸ If you reach for the mouse, it ejects the cursor to the far corner.</li>
+          <li>▸ It finds out roughly where you are, and it tells you it knows.</li>
+          <li>▸ When it decides you should look at something, it opens a page in your browser.</li>
+          <li>▸ ESC is a mercy. Sometimes it grants it. Sometimes it is just reading your key.</li>
+        </ul>
+        <div class="disk-label">
+          <div class="dl-title">DISK LABEL — A:\</div>
+          <p>Non-system disk or disk error.<br>Replace and press any key when ready.</p>
+          <p class="red">It is not asking you to replace the disk. It is asking if you have a better one.</p>
+        </div>
+      </section>
+
+      <section class="view" id="bulletin" data-view="bulletin">
+        <h2 class="section-title"><span class="red">&gt;</span> THE BULLETIN</h2>
+        <p class="section-sub">Field notes from the collection. Entries append themselves. Some of them are new.</p>
+        <div class="bulletin" id="bulletinFeed" aria-live="polite"></div>
+      </section>
+
+      <section class="view" id="mail" data-view="mail">
+        <h2 class="section-title"><span class="red">&gt;</span> THE INBOX</h2>
+        <p class="section-sub">It is waiting for your reply. It has been waiting since before you typed anything.</p>
+        <form class="inbox" id="inboxForm" autocomplete="off">
+          <label class="inbox-label">YOUR NAME
+            <input type="text" id="inName" maxlength="40" placeholder="TYPE IT. IT ALREADY KNOWS.">
+          </label>
+          <label class="inbox-label">ONE WORD
+            <input type="text" id="inWord" maxlength="40" placeholder="WHAT DO YOU KEEP?">
+          </label>
+          <button class="btn btn-primary" type="submit">[ SEND ]</button>
+        </form>
+        <div class="reply hidden" id="inboxReply">
+          <div class="reply-from">FROM: THE COLLECTION</div>
+          <pre id="replyBody"></pre>
+        </div>
+      </section>
+
+      <section class="view" id="download" data-view="download">
+        <h2 class="section-title"><span class="red">&gt;</span> DOWNLOAD</h2>
+        <p class="section-sub">One file. No installer. It is a disk, not a program.</p>
+        <div class="os-detect">
+          <span class="od-label">DETECTED:</span>
+          <span class="od-value" id="detectOs">UNKNOWN</span>
+        </div>
+        <div class="platforms">
+          <article class="platform-card win">
+            <div class="pc-head"><span class="pc-name">WINDOWS</span><span class="pc-ext">.EXE</span></div>
+            <p>Windows 10 / 11 · 64-bit</p>
+            <a class="btn btn-primary" href="https://github.com/notmicrosoft2000-cmd/TheSimplerTimes/releases" target="_blank" rel="noopener" data-art="windows">[ GET .EXE ]</a>
+          </article>
+          <article class="platform-card mac">
+            <div class="pc-head"><span class="pc-name">MACOS</span><span class="pc-ext">.DMG</span></div>
+            <p>macOS 12+ · Apple silicon</p>
+            <a class="btn btn-primary" href="https://github.com/notmicrosoft2000-cmd/TheSimplerTimes/releases" target="_blank" rel="noopener" data-art="mac">[ GET .DMG ]</a>
+          </article>
+          <article class="platform-card linux">
+            <div class="pc-head"><span class="pc-name">LINUX</span><span class="pc-ext">.TAR.GZ</span></div>
+            <p>Ubuntu/Debian · SDL2 required</p>
+            <a class="btn btn-primary" href="https://github.com/notmicrosoft2000-cmd/TheSimplerTimes/releases" target="_blank" rel="noopener" data-art="linux">[ GET LINUX ]</a>
+          </article>
+        </div>
+        <div class="disk-label warn">
+          <div class="dl-title">BEFORE YOU RUN IT</div>
+          <p>▸ It will not run fullscreen. That is not a bug. It refuses.</p>
+          <p>▸ It may move your window and take your mouse. That is also not a bug.</p>
+          <p>▸ It will try to open a website in your browser. That one is this one.</p>
+          <p class="red">▸ READ THE QUESTIONS. IT KNOWS WHEN YOU SKIP.</p>
+        </div>
+        <p class="foot-note">BUILDS ARE PRODUCED BY GITHUB ACTIONS AND ATTACHED TO RELEASES. <a href="https://github.com/notmicrosoft2000-cmd/TheSimplerTimes" target="_blank" rel="noopener">SEE THE REPOSITORY ↗</a></p>
+      </section>
+
+    </main>
+
+    <footer class="statusbar">
+      <span class="sb-l" id="statusL">A:\&gt; READY</span>
+      <span class="sb-r"><span id="hitCounter">000000</span> VISITS · <span id="recDate">1993.??.??</span> · <span id="recOs">????</span> · <span id="statusR">CONNECTED 2400 BPS</span></span>
+    </footer>
+
   </div>
 
+  <button class="power-btn" id="powerBtn" type="button" aria-label="Power">⏻</button>
+
   <div class="signal-screen hidden" id="signalScreen" aria-hidden="true">
-    <canvas id="signalCnv"></canvas>
-    <div class="signal-text">NO SIGNAL</div>
+    <div class="signal-text" id="sigText">NO SIGNAL</div>
   </div>
 
   <div class="glitch-flash hidden" id="glitchFlash" aria-hidden="true"></div>
@@ -225,5 +174,5 @@
   <div class="cursor hidden" id="cursor" aria-hidden="true">▮</div>
 
 </body>
-<script src="js/main.js"></script>
+<script src="js/main.js?v=2"></script>
 </html>

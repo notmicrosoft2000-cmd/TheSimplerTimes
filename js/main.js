@@ -1,5 +1,6 @@
 /* THE SIMPLER TIMES — the website that is very aware you are viewing it.
-   Boot sequence, power, 1990s portal nav, and the entity's interference. */
+   It boots itself. Boot, power, 1990s portal nav, and the entity's
+   interference. Amber phosphor, full screen, no monitor. */
 (function () {
   "use strict";
 
@@ -8,19 +9,16 @@
   var $ = function (s) { return document.querySelector(s); };
   var $$ = function (s) { return Array.prototype.slice.call(document.querySelectorAll(s)); };
 
-  var monitor = $("#monitor");
-  var screenContent = $("#screenContent");
-  var ledPower = $("#ledPower");
   var boot = $("#boot");
   var bootLog = $("#bootLog");
   var bootPrompt = $("#bootPrompt");
   var os = $("#os");
-  var win = $("#win");
+  var offline = $("#offline");
+  var powerBtn = $("#powerBtn");
   var cursor = $("#cursor");
   var toastEl = $("#toast");
   var glitchFlash = $("#glitchFlash");
   var signalScreen = $("#signalScreen");
-  var signalCnv = $("#signalCnv");
   var sigText = $("#sigText");
   var statusL = $("#statusL");
   var statusR = $("#statusR");
@@ -62,7 +60,7 @@
   var glitchBeep = function () { beep(220, 90, 0.05); beep(140, 120, 0.05); };
 
   /* --------------------------------------------------------------
-     Power / boot
+     Power / boot — it boots itself
      -------------------------------------------------------------- */
   var BOOT_LINES = [
     "A:\\> cold boot",
@@ -75,9 +73,13 @@
   function powerOn() {
     if (powered) return;
     powered = true;
-    monitor.classList.add("on");
-    screenContent.classList.remove("power-off");
+    powerBtn.classList.add("on");
+    offline.classList.add("hidden");
+    boot.classList.remove("hidden");
+    os.classList.add("hidden");
+    bootLog.textContent = "";
     bootPrompt.classList.add("hidden");
+    osShown = false;
     runBoot();
     beep(440, 60, 0.05); beep(660, 60, 0.05);
   }
@@ -85,12 +87,10 @@
   function powerOff() {
     if (!powered) return;
     powered = false;
-    monitor.classList.remove("on");
-    screenContent.classList.add("power-off");
+    powerBtn.classList.remove("on");
+    boot.classList.add("hidden");
     os.classList.add("hidden");
-    boot.classList.remove("hidden");
-    bootPrompt.classList.add("hidden");
-    bootLog.textContent = "";
+    offline.classList.remove("hidden");
     osShown = false;
     glitchBeep();
     setTimeout(function () { beep(180, 160, 0.05); }, 80);
@@ -127,6 +127,7 @@
     boot.classList.add("hidden");
     os.classList.remove("hidden");
     osShown = true;
+    showView("home", true);
     beep(520, 70, 0.05);
     toast("IT IS A WINDOW. IT WILL NOT STAY STILL.");
     scheduleGlitches();
@@ -204,8 +205,7 @@
 
   document.addEventListener("keydown", function (e) {
     if (!powered) {
-      if (e.key === "Enter" || e.key === " ") { e.preventDefault(); powerOn(); }
-      if (e.key === "Escape") { e.preventDefault(); powerOn(); }
+      if (e.key === "Enter" || e.key === " " || e.key === "Escape") { e.preventDefault(); powerOn(); }
       return;
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
@@ -235,7 +235,7 @@
   });
 
   /* --------------------------------------------------------------
-     Custom cursor + the mouse guard (it ejects you)
+     Custom cursor — instant tracking, no lag. It ejects you anyway.
      -------------------------------------------------------------- */
   var finePointer = window.matchMedia && matchMedia("(pointer:fine)").matches;
   var cursorWarped = false;
@@ -269,7 +269,7 @@
   }
 
   /* --------------------------------------------------------------
-     Glitches — the entity interferes
+     Glitches — the entity interferes (kept rare, kept light)
      -------------------------------------------------------------- */
   var GLITCH_MESSAGES = [
     "THE WINDOW IS MOVING.",
@@ -283,13 +283,12 @@
     "SIGNAL CHECKING IN FROM 1993."
   ];
   var glitchTimer = null;
-  var signalTimer = null;
 
   function glitch(msg, mode) {
     if (!powered || !osShown) return;
     if (mode === "toast") { toast(msg); return; }
-    win.classList.add("jittering");
-    setTimeout(function () { win.classList.remove("jittering"); }, 240);
+    os.classList.add("jittering");
+    setTimeout(function () { os.classList.remove("jittering"); }, 240);
     glitchFlash.classList.add("go");
     setTimeout(function () { glitchFlash.classList.remove("go"); }, 140);
     if (msg) toast(msg);
@@ -322,7 +321,7 @@
   }
 
   function scheduleGlitches() {
-    var next = 6000 + Math.random() * 12000;
+    var next = 12000 + Math.random() * 18000;
     glitchTimer = setTimeout(function () {
       if (powered && osShown) {
         var r = Math.random();
@@ -331,9 +330,9 @@
         } else if (r < 0.7) {
           ejectCursor();
           toast("DO NOT REACH FOR THE MOUSE.");
-        } else if (r < 0.82) {
+        } else if (r < 0.84) {
           corruptEl($(".marquee-track"));
-        } else if (r < 0.92) {
+        } else if (r < 0.94) {
           glitch();
         } else {
           dropSignal();
@@ -349,57 +348,17 @@
     sigText.textContent = "SIGNAL LOST";
     sigText.classList.add("red");
     statusR.textContent = "SIGNAL LOST";
-    document.body.classList.add("signal-off");
-    noiseTick();
     cursor.style.opacity = 0;
     glitchBeep();
     setTimeout(function () {
       signalScreen.classList.add("hidden");
-      sigText.textContent = "SIGNAL STABLE";
+      sigText.textContent = "NO SIGNAL";
       sigText.classList.remove("red");
       statusR.textContent = "SIGNAL STABLE";
-      document.body.classList.remove("signal-off");
       if (finePointer) cursor.style.opacity = 1;
       toast("SIGNAL RESTORED. IT WAS HERE THE WHOLE TIME.");
     }, 2600);
   }
-
-  var noiseRAF = null;
-  function noiseTick() {
-    var c = signalCnv;
-    if (!c || signalScreen.classList.contains("hidden")) return;
-    c.width = c.width; // clear
-    var ctx = c.getContext("2d");
-    var w = c.width = Math.floor(innerWidth / 4);
-    var h = c.height = Math.floor(innerHeight / 4);
-    var img = ctx.createImageData(w, h);
-    var d = img.data;
-    for (var i = 0; i < d.length; i += 4) {
-      var v = Math.random() < 0.5 ? 0 : 255;
-      d[i] = v; d[i + 1] = v; d[i + 2] = v; d[i + 3] = 255;
-    }
-    ctx.putImageData(img, 0, 0);
-    noiseRAF = requestAnimationFrame(noiseTick);
-  }
-  window.addEventListener("resize", function () { if (!signalScreen.classList.contains("hidden")) noiseTick(); });
-
-  /* --------------------------------------------------------------
-     Title bar: minimize & close refuse to work
-     -------------------------------------------------------------- */
-  $("#btnMin").addEventListener("click", function () {
-    glitch("IT WILL NOT STAY MINIMIZED.");
-    ejectCursor();
-  });
-  $("#btnClose").addEventListener("click", function () {
-    glitch("THE WINDOW REFUSES TO CLOSE. TRY THE POWER BUTTON.");
-    ejectCursor();
-  });
-  $("#btnMin").addEventListener("keydown", function (e) {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#btnMin").click(); }
-  });
-  $("#btnClose").addEventListener("keydown", function (e) {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#btnClose").click(); }
-  });
 
   /* --------------------------------------------------------------
      Toast + status
@@ -574,33 +533,18 @@
   }
 
   /* --------------------------------------------------------------
-     Wire up: power, initial view, scroll guard
+     Wire up
      -------------------------------------------------------------- */
-  var powerBtn = $("#powerBtn");
   powerBtn.addEventListener("click", function () { powered ? powerOff() : powerOn(); });
-  $("#btnPower").addEventListener("click", function () { powered ? powerOff() : powerOn(); });
-  $("#btnPower").addEventListener("keydown", function (e) {
-    if (e.key === "Enter" || e.key === " ") { e.preventDefault(); $("#btnPower").click(); }
-  });
 
   document.addEventListener("click", function () {
     if (!powered) powerOn();
   });
-  document.addEventListener("keydown", function (e) {
-    if (!powered && (e.key === "Enter" || e.key === " ")) powerOn();
-  });
 
-  // Enter at the boot prompt begins the OS
-  bootPrompt.parentElement.addEventListener("click", function () {
+  // Click the boot screen when the prompt is up to begin the OS
+  boot.addEventListener("click", function () {
     if (powered && !osShown && !bootPrompt.classList.contains("hidden")) enterOS();
   });
-
-  // Prevent accidental page scrolls that break the "through a computer" feel
-  document.addEventListener("wheel", function (e) {
-    var v = $(".views");
-    if (v && v.contains(e.target)) return;
-    if (e.ctrlKey) e.preventDefault();
-  }, { passive: false });
 
   // Status bar lives on
   setInterval(function () {
@@ -614,4 +558,6 @@
 
   showView("home", true);
   reflectPlatform();
+
+  powerOn(); // it boots itself
 })();
