@@ -127,7 +127,105 @@
     boot.classList.add("hidden");
     os.classList.remove("hidden");
     osShown = true;
-    showView("home", true);
+  /* --------------------------------------------------------------
+     THE QUESTION GAME — merge sequence (in-site, no iframes)
+     -------------------------------------------------------------- */
+  var mergeScreen = $("#mergeScreen");
+  var mergeBody = $("#mergeBody");
+  var mergeNote = $("#mergeNote");
+  var mergeActions = $("#mergeActions");
+  var mergeClose = $("#mergeClose");
+  var mergeBack = $("#mergeBack");
+  var mergeMarquee = $("#mergeMarquee");
+  var tqgLaunch = $("#tqgLaunch");
+
+  var MERGE_MARQUEE = " *** ARE YOU SITTING COMFORTABLY? *** THE ROOM IS GETTING COLDER *** THE GAME REMEMBERS. DO YOU? *** PLAY WITH HEADPHONES *** THERE IS SOMETHING IN THE ROOM WITH YOU *** THE QUESTIONS NEVER END *** ";
+  var MERGE_NOTES = [
+    "A:\\> the amber is going green",
+    "A:\\> the questions have your name on them",
+    "A:\\> THE SIMPLER TIMES IS STILL WATCHING",
+    "A:\\> you are now looking at THE QUESTION GAME"
+  ];
+
+  var mergeOpen = false;
+  var mergePrefix = "";
+
+  function typeMergeNote(text, i) {
+    if (!mergeOpen) return;
+    if (i >= text.length) return;
+    mergeNote.textContent = mergePrefix + text.slice(0, i);
+    setTimeout(function () { typeMergeNote(text, i + 2 + Math.floor(Math.random() * 3)); }, 16);
+  }
+
+  function buildMergeMarquee() {
+    if (!mergeMarquee) return;
+    mergeMarquee.textContent = MERGE_MARQUEE + MERGE_MARQUEE;
+  }
+
+  function makeMergeDrips() {
+    if (!mergeScreen) return;
+    $$(".merge-drip", mergeScreen).forEach(function (d) { d.remove(); });
+    for (var i = 0; i < 9; i++) {
+      var d = document.createElement("div");
+      d.className = "merge-drip";
+      d.style.left = (3 + Math.random() * 92) + "%";
+      d.style.height = (14 + Math.random() * 18) + "vh";
+      d.style.animationDelay = (0.12 + Math.random() * 1.1) + "s";
+      mergeScreen.appendChild(d);
+    }
+  }
+
+  function openMerge() {
+    if (mergeOpen || !mergeScreen) return;
+    mergeOpen = true;
+    glitchBeep();
+    document.body.classList.add("merging");
+    mergeActions.classList.add("hidden");
+    mergeClose.classList.add("hidden");
+    mergeNote.textContent = "";
+    buildMergeMarquee();
+    makeMergeDrips();
+    mergeScreen.setAttribute("aria-hidden", "false");
+    mergeScreen.classList.remove("hidden");
+    setTimeout(function () { mergeScreen.classList.add("go"); }, 30);
+    setTimeout(function () { if (mergeOpen) mergeBody.setAttribute("aria-hidden", "false"); }, 1500);
+    setTimeout(function () {
+      if (!mergeOpen) return;
+      var note = 0;
+      var step = function () {
+        if (!mergeOpen || note >= MERGE_NOTES.length) return;
+        mergePrefix = mergeNote.textContent;
+        typeMergeNote(MERGE_NOTES[note] + "\n", 0);
+        note++;
+        setTimeout(step, 950);
+      };
+      step();
+    }, 2600);
+    setTimeout(function () {
+      if (!mergeOpen) return;
+      mergeActions.classList.remove("hidden");
+      mergeClose.classList.remove("hidden");
+      if (mergeClose) mergeClose.focus();
+      beep(660, 60, 0.05);
+    }, 7500);
+  }
+
+  function closeMerge() {
+    if (!mergeOpen || !mergeScreen) return;
+    mergeOpen = false;
+    mergeScreen.classList.remove("go");
+    mergeBody.setAttribute("aria-hidden", "true");
+    mergeScreen.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("merging");
+    glitchBeep();
+    setTimeout(function () { mergeScreen.classList.add("hidden"); }, 400);
+  }
+
+  if (mergeBack) mergeBack.addEventListener("click", closeMerge);
+  if (mergeClose) mergeClose.addEventListener("click", closeMerge);
+  if (tqgLaunch) tqgLaunch.addEventListener("click", openMerge);
+
+  showView("home", true);
     beep(520, 70, 0.05);
     toast("IT IS A WINDOW. IT WILL NOT STAY STILL.");
     scheduleGlitches();
@@ -164,6 +262,7 @@
     var a = e.target.closest('a[href^="#"]');
     if (!a) return;
     var v = a.getAttribute("data-view");
+    if (v === "tqg") { e.preventDefault(); openMerge(); return; }
     if (v && VIEWS.indexOf(v) !== -1) { e.preventDefault(); showView(v); click(); }
   });
 
@@ -211,6 +310,7 @@
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     var tag = (e.target.tagName || "").toLowerCase();
     if (tag === "input" || tag === "textarea") return;
+    if (mergeOpen && e.key === "Escape") { e.preventDefault(); closeMerge(); return; }
 
     if (VIEW_DIGITS[e.key]) { e.preventDefault(); showView(VIEW_DIGITS[e.key]); click(); return; }
 

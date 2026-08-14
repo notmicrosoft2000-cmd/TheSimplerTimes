@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=VT323&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=2">
+  <link rel="stylesheet" href="css/style.css?v=3">
 </head>
 <body>
 
@@ -20,7 +20,7 @@
       #boot,#offline{display:none !important}
       .view{opacity:1 !important; transform:none !important; display:block !important}
       .hidden{display:block !important}
-      #signalScreen,#glitchFlash,#cursor,.cursor{display:none !important}
+      #signalScreen,#glitchFlash,#cursor,.cursor,#mergeScreen{display:none !important}
       .os{display:flex !important}
     </style>
   </noscript>
@@ -44,7 +44,7 @@
         <a class="menu-link" href="#bulletin" data-view="bulletin">THE BULLETIN</a>
         <a class="menu-link" href="#mail" data-view="mail">THE INBOX</a>
         <a class="menu-link" href="#download" data-view="download">DOWNLOAD</a>
-        <a class="menu-link ext" href="https://notmicrosoft2000-cmd.github.io/TheQuestionGame/" data-view="tqg" target="_blank" rel="noopener">THE QUESTION GAME ↗</a>
+        <a class="menu-link" href="#tqg" data-view="tqg">THE QUESTION GAME</a>
       </nav>
     </header>
 
@@ -154,6 +154,22 @@
         <p class="foot-note">BUILDS ARE PRODUCED BY GITHUB ACTIONS AND ATTACHED TO RELEASES. <a href="https://github.com/notmicrosoft2000-cmd/TheSimplerTimes" target="_blank" rel="noopener">SEE THE REPOSITORY ↗</a></p>
       </section>
 
+      <section class="view" id="tqg" data-view="tqg">
+        <h2 class="section-title"><span class="red">&gt;</span> THE QUESTION GAME</h2>
+        <p class="section-sub">The original. The first session. The game this disk keeps refusing to talk about.</p>
+        <div class="disk-label">
+          <div class="dl-title">TQG — SYSTEM</div>
+          <p>It asks. You answer. The room gets colder.</p>
+          <p>It remembers what you tell it. It always has.</p>
+          <p class="red">It is still listening. It never stopped.</p>
+        </div>
+        <div class="home-actions">
+          <button class="btn btn-primary" id="tqgLaunch" type="button">[ MERGE WITH THE QUESTION GAME ]</button>
+          <a class="btn btn-ghost" href="https://notmicrosoft2000-cmd.github.io/TheQuestionGame/" target="_blank" rel="noopener">[ OPEN DIRECTLY ↗ ]</a>
+        </div>
+        <p class="foot-note">TEXT-BASED HORROR EXPERIENCE · WINDOWS / MACOS / LINUX · PLAY WITH HEADPHONES</p>
+      </section>
+
     </main>
 
     <footer class="statusbar">
@@ -173,6 +189,24 @@
   <div class="toast hidden" id="toast" aria-hidden="true"></div>
   <div class="cursor hidden" id="cursor" aria-hidden="true">▮</div>
 
+  <div class="merge-screen hidden" id="mergeScreen" role="dialog" aria-modal="true" aria-label="THE QUESTION GAME — merging" aria-hidden="true">
+    <div class="merge-band" aria-hidden="true"></div>
+    <div class="merge-body" aria-hidden="true">
+      <div class="merge-brand">TQG_ <span>SYSTEM ACTIVE</span></div>
+      <div class="merge-marquee" aria-hidden="true"><div class="merge-marquee-track" id="mergeMarquee"></div></div>
+      <div class="merge-inner">
+        <h1 class="merge-title" data-text="THE QUESTION GAME">THE QUESTION GAME</h1>
+        <p class="merge-tag">A text-based horror experience. It asks. You answer. It listens.</p>
+        <p class="merge-note" id="mergeNote" aria-live="polite"></p>
+        <div class="merge-actions hidden" id="mergeActions">
+          <a class="btn btn-primary" href="https://notmicrosoft2000-cmd.github.io/TheQuestionGame/" target="_blank" rel="noopener">[ ENTER THE QUESTION GAME ]</a>
+          <button class="btn btn-ghost" id="mergeBack" type="button">[ RETURN TO THE SIMPLER TIMES ]</button>
+        </div>
+      </div>
+    </div>
+    <button class="merge-close hidden" id="mergeClose" type="button" aria-label="Return to The Simpler Times">✕ RETURN</button>
+  </div>
+
 </body>
-<script src="js/main.js?v=2"></script>
+<script src="js/main.js?v=3"></script>
 </html>

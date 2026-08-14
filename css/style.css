@@ -363,3 +363,108 @@ a:hover{color:var(--amber-bright)}
 @media (prefers-reduced-motion:reduce){
   .marquee-track,.ascii-disk,.glitch-title.erupt,.os.jittering{animation:none !important}
 }
+
+/* ---------------------------------------------------------------
+   THE QUESTION GAME — in-site merge sequence (no iframes).
+   A band of the original's green palette melts down over the amber
+   portal; the site underneath shifts amber→green while a miniature
+   of the question game types itself in. Pure CSS/JS, local assets.
+   --------------------------------------------------------------- */
+.merge-screen{
+  position:fixed;inset:0;z-index:200;overflow:hidden;
+  background:var(--bg);color:var(--amber);
+  font-family:var(--mono);
+  opacity:0;pointer-events:none;
+  display:flex;flex-direction:column;
+  transition:opacity .25s ease;
+}
+.merge-screen.go{opacity:1;pointer-events:auto}
+.merge-screen .hidden{display:none !important}
+
+.merge-band{
+  position:absolute;top:0;left:0;width:100%;height:0;
+  background:linear-gradient(180deg,#00dc00 0%,#b9ffb9 55%,#66ff66 100%);
+  box-shadow:0 0 40px rgba(0,220,0,.5);
+}
+.merge-screen.go .merge-band{height:100%;transition:height 2.6s cubic-bezier(.7,.05,.9,.3)}
+.merge-fringe{
+  position:absolute;bottom:-14px;left:-4%;width:108%;height:28px;
+  background:
+    repeating-linear-gradient(0deg,rgba(0,220,0,.85) 0 3px,rgba(4,4,4,0) 3px 6px),
+    repeating-linear-gradient(90deg,rgba(4,4,4,.3) 0 22px,rgba(4,4,4,0) 22px 41px);
+  animation:fringe 1.4s steps(12) infinite;
+}
+@keyframes fringe{
+  0%{transform:translate(0,0)}
+  25%{transform:translate(-6px,1px)}
+  50%{transform:translate(5px,-2px)}
+  75%{transform:translate(-4px,2px)}
+  100%{transform:translate(0,0)}
+}
+.merge-drip{
+  position:absolute;top:-12vh;width:3px;
+  background:linear-gradient(180deg,rgba(0,220,0,0),#00dc00);
+  opacity:0;animation:drip 1.7s linear forwards;
+}
+@keyframes drip{0%{opacity:0}15%{opacity:.9}100%{top:112vh;opacity:.55}}
+
+.merge-body{
+  position:relative;flex:1;display:flex;flex-direction:column;
+  opacity:0;transform:translateY(10px);
+  transition:opacity .6s ease,transform .6s ease;
+}
+.merge-screen.go .merge-body{opacity:1;transform:none}
+.merge-brand{
+  flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;
+  border-bottom:1px solid #2a2a2a;background:#0a0a0a;
+  padding:.45rem clamp(1rem,3vw,2rem);
+  font-family:var(--vt);font-size:clamp(1rem,2.2vw,1.4rem);letter-spacing:.14em;color:#66ff66;
+}
+.merge-brand span{color:#0a5c1d;font-size:.8em;letter-spacing:.1em}
+.merge-marquee{
+  flex:0 0 auto;overflow:hidden;white-space:nowrap;border-bottom:1px solid #1b1b1b;
+  background:#0a0a0a;font-family:var(--vt);font-size:clamp(.8rem,1.5vw,1rem);
+  letter-spacing:.08em;color:#0a5c1d;padding:.14rem .5rem;
+}
+.merge-marquee-track{display:inline-block;animation:merge-marquee 42s linear infinite}
+@keyframes merge-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+
+.merge-inner{
+  flex:1;overflow-y:auto;max-width:880px;margin:0 auto;
+  padding:clamp(1.2rem,3.5vw,2.6rem) clamp(1.2rem,5vw,2.6rem);
+}
+.merge-title{
+  font-family:var(--vt);font-weight:400;letter-spacing:.06em;line-height:1;
+  font-size:clamp(2.4rem,8vw,5.6rem);color:#66ff66;
+  text-shadow:0 0 18px rgba(0,220,0,.5);position:relative;margin:.2rem 0 .6rem;
+}
+.merge-title::before,.merge-title::after{content:attr(data-text);position:absolute;inset:0;opacity:.7;pointer-events:none}
+.merge-title::before{color:#ff3c3c;transform:translate(2px,0);z-index:-1}
+.merge-title::after{color:#00dc00;transform:translate(-2px,0);z-index:-2}
+.merge-tag{font-size:clamp(.95rem,1.8vw,1.15rem);color:#b9ffb9;max-width:640px;margin-bottom:1.4rem}
+.merge-note{min-height:2.6em;font-size:.95rem;color:#00dc00;max-width:640px;white-space:pre-wrap;line-height:1.8}
+.merge-actions{display:flex;flex-wrap:wrap;gap:1rem;margin-top:2rem}
+.merge-close{
+  position:absolute;top:.6rem;right:.8rem;z-index:5;
+  border:1px solid #2a2a2a;background:#0a0a0a;color:#0a5c1d;
+  font-family:var(--vt);letter-spacing:.1em;font-size:.85rem;padding:.3rem .7rem;
+}
+.merge-close:hover{color:#66ff66;border-color:#00dc00}
+
+.merge-screen .btn{border-color:#2a2a2a;color:#00dc00;box-shadow:2px 2px 0 #000,inset 0 0 0 1px rgba(0,220,0,.1)}
+.merge-screen .btn:hover{background:rgba(0,220,0,.12);color:#66ff66}
+.merge-screen .btn-primary{background:#00dc00;color:#041400;box-shadow:2px 2px 0 #000,0 0 14px rgba(0,220,0,.35)}
+.merge-screen .btn-primary:hover{background:#66ff66;color:#041400}
+.merge-screen .btn-ghost:hover{border-color:#ff3c3c;color:#ff3c3c;background:rgba(255,60,60,.06)}
+
+/* the amber portal underneath turns green while the original melts through */
+body.merging{
+  --bg:#040404;--panel:#0a0a0a;--panel2:#0c0c0c;--line:#1b1b1b;--line-bright:#2a2a2a;
+  --amber:#00dc00;--amber-bright:#66ff66;--amber-soft:#b9ffb9;--amber-dim:#0a5c1d;
+  transition:background .9s ease,color .9s ease;
+}
+
+@media (prefers-reduced-motion:reduce){
+  .merge-screen.go .merge-band{transition:none;height:100%}
+  .merge-fringe,.merge-drip,.merge-marquee-track{animation:none !important}
+}
