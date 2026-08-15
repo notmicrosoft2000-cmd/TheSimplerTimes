@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=VT323&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=6">
+  <link rel="stylesheet" href="css/style.css?v=8">
 </head>
 <body>
 
@@ -252,6 +252,7 @@
       <span class="sb-l" id="statusL">A:\&gt; READY</span>
       <span class="sb-r">
         <button class="console-btn" id="consoleBtn" type="button" title="COMMAND.COM — TOGGLE WITH `">A:\&gt;_</button>
+        <span class="amb-icon" id="ambIcon" aria-hidden="true"><i></i><i></i><i></i></span>
         <span class="ambience-status" id="ambTag">AMBIENCE</span>
         <span id="hitCounter" title="DO NOT CLICK THIS">000000</span> VISITS · <span id="recDate">1993.??.??</span> · <span id="recOs">????</span> · <span id="statusR">CONNECTED 2400 BPS</span>
       </span>
@@ -273,17 +274,24 @@
     <div class="melt-up" id="meltUp" aria-hidden="true"></div>
     <div class="melt-down" id="meltDown" aria-hidden="true"></div>
     <div class="transit-q" id="transitQ" aria-hidden="true">?</div>
-    <div class="transit-inner">
-      <div class="transit-log" id="transitLog" aria-live="polite"></div>
-      <div class="transit-prompt hidden" id="transitPrompt">REDIRECTING TO THE QUESTION GAME . . .</div>
-      <div class="transit-abort hidden" id="transitAbort">[ ESC ] ABORT</div>
+  </div>
+
+  <div class="sig-overlay hidden" id="sigOverlay" role="dialog" aria-modal="true" aria-label="SIGNAL INTERRUPTED" aria-hidden="true">
+    <canvas class="sig-static" id="sigStatic" aria-hidden="true"></canvas>
+    <div class="sig-crt" aria-hidden="true"></div>
+    <div class="sig-inner">
+      <div class="sig-title">SIGNAL INTERRUPTED</div>
+      <div class="sig-sub" id="sigSub">RE-ESTABLISHING LINK TO THE QUESTION GAME</div>
+      <div class="sig-pct" id="sigPct">0%</div>
     </div>
   </div>
 
   <div class="dos hidden" id="dos" role="dialog" aria-modal="true" aria-label="COMMAND.COM" aria-hidden="true">
-    <div class="dos-head">
-      <span>A:\&gt; COMMAND.COM — DO WHAT YOU WANT</span>
-      <span class="dos-head-r">[ ` ] CLOSE</span>
+    <div class="dos-head" id="dosHead">
+      <span class="dos-title">A:\&gt; COMMAND.COM — LORE &amp; CUSTOMIZATION</span>
+      <span class="dos-head-r">
+        <span class="dos-close" id="dosCloseBtn" role="button" tabindex="0" aria-label="Close">✕</span>
+      </span>
     </div>
     <div class="dos-out" id="dosOut" aria-live="polite"></div>
     <div class="dos-line">
@@ -301,5 +309,5 @@
   <div class="cursor-light" id="cursorLight" aria-hidden="true"></div>
 
 </body>
-<script src="js/main.js?v=6"></script>
+<script src="js/main.js?v=8"></script>
 </html>
