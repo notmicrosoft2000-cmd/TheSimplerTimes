@@ -36,7 +36,7 @@ body{
   -webkit-font-smoothing:none;
   text-shadow:0 0 1px rgba(255,176,32,.35);
 }
-body.js-on{cursor:none}
+body.custom-cursor{cursor:none}
 
 a{color:var(--amber);text-decoration:none}
 a:hover{color:var(--amber-bright)}
@@ -370,7 +370,7 @@ a:hover{color:var(--amber-bright)}
   transform:translate(-50%,-50%);
   transition:opacity .25s ease;
 }
-html:not(.js-on) .cursor-light{display:none}
+body:not(.custom-cursor) .cursor-light{display:none}
 
 .menu-link{transition:color .15s,background .15s,border-color .15s,text-shadow .15s}
 .menu-link:hover{color:var(--amber-bright);background:rgba(255,176,32,.08);text-shadow:0 0 10px rgba(255,176,32,.6);border-color:rgba(255,176,32,.35)}

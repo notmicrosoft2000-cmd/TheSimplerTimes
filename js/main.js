@@ -526,6 +526,7 @@
   var cursorLight = $("#cursorLight");
 
   if (finePointer) {
+    document.body.classList.add("custom-cursor");
     cursor.classList.remove("hidden");
     cursor.style.opacity = 0;
     document.addEventListener("mousemove", function (e) {
