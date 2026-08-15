@@ -28,15 +28,14 @@
   var recDate = $("#recDate");
   var recOs = $("#recOs");
   var detectOs = $("#detectOs");
-  var marqueeTrack = $("#marqueeTrack");
   var logFeed = $("#logFeed");
   var fbList = $("#fbList");
   var fbRead = $("#fbRead");
   var fbTitle = $("#fbTitle");
   var fbBody = $("#fbBody");
 
-  var VIEWS = ["home", "disk", "files", "log", "shots", "mail", "download"];
-  var VIEW_DIGITS = { "1": "home", "2": "disk", "3": "files", "4": "log", "5": "shots", "6": "mail", "7": "download" };
+  var VIEWS = ["home", "disk", "archive", "files", "log", "shots", "mail", "download"];
+  var VIEW_DIGITS = { "1": "home", "2": "disk", "3": "archive", "4": "files", "5": "log", "6": "shots", "7": "mail", "8": "download" };
   var powered = false;
   var osShown = false;
   var kbTarget = "";
@@ -153,14 +152,149 @@
   }
 
   /* --------------------------------------------------------------
+     Ambience — the room the site is in. Always on once it has heard
+     you interact (browsers demand a gesture first). A low hum, a
+     slow room tone, and the occasional soft static pop.
+     -------------------------------------------------------------- */
+  var ambienceOn = true;
+  var amb = null;
+
+  function startAmbience() {
+    if (!ambienceOn || amb) return;
+    var c = ensureAudio();
+    if (!c) return;
+    var t = c.currentTime;
+    var master = c.createGain();
+    master.gain.value = 0;
+    master.gain.linearRampToValueAtTime(1, t + 2.5);
+
+    var hum = c.createOscillator();
+    hum.type = "sine";
+    hum.frequency.value = 46;
+    var hg = c.createGain();
+    hg.gain.value = 0.016;
+    var lfo = c.createOscillator();
+    lfo.frequency.value = 0.31;
+    var lg = c.createGain();
+    lg.gain.value = 0.005;
+    lfo.connect(lg); lg.connect(hg.gain);
+    hum.connect(hg); hg.connect(master);
+    hum.start(); lfo.start();
+
+    var nb = noiseBuffer(c, 3);
+    var room = c.createBufferSource();
+    room.buffer = nb; room.loop = true;
+    var lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.value = 260;
+    lp.Q.value = 0.6;
+    var ng = c.createGain();
+    ng.gain.value = 0.05;
+    room.connect(lp); lp.connect(ng); ng.connect(master);
+    room.start();
+
+    var pops = setInterval(function () {
+      if (!ambienceOn) return;
+      var c2 = ensureAudio();
+      if (!c2 || Math.random() > 0.55) return;
+      var s = c2.createBufferSource();
+      s.buffer = noiseBuffer(c2, 0.045);
+      var bp = c2.createBiquadFilter();
+      bp.type = "bandpass";
+      bp.frequency.value = 500 + Math.random() * 1900;
+      bp.Q.value = 1.4;
+      var gg = c2.createGain();
+      gg.gain.value = 0.012 + Math.random() * 0.01;
+      s.connect(bp); bp.connect(gg); gg.connect(master);
+      s.start();
+    }, 4200);
+
+    amb = { master: master, pops: pops, room: room, hum: hum, lfo: lfo };
+  }
+
+  function stopAmbience() {
+    if (!amb) return;
+    var c = ensureAudio();
+    if (c) {
+      var t = c.currentTime;
+      try { amb.master.gain.cancelScheduledValues(t); amb.master.gain.setValueAtTime(amb.master.gain.value, t); amb.master.gain.linearRampToValueAtTime(0.0001, t + 1.1); } catch (e) {}
+    }
+    clearInterval(amb.pops);
+    setTimeout(function () {
+      try { amb.room.stop(); amb.hum.stop(); amb.lfo.stop(); } catch (e) {}
+    }, 1300);
+    amb = null;
+  }
+
+  function toggleAmbience(on) {
+    ambienceOn = (on === undefined) ? !ambienceOn : !!on;
+    if (ambienceOn) startAmbience(); else stopAmbience();
+    var tag = $("#ambTag");
+    if (tag) {
+      tag.classList.toggle("on", ambienceOn);
+      tag.classList.toggle("off", !ambienceOn);
+    }
+    return ambienceOn;
+  }
+
+  /* --------------------------------------------------------------
+     Palettes — you can re-colour the whole site from the console
+     -------------------------------------------------------------- */
+  var PALETTES = {
+    amber: {
+      "--bg": "#060400", "--panel": "#0e0902", "--panel2": "#150e04",
+      "--line": "#201406", "--line-bright": "#32200a",
+      "--amber": "#ffb020", "--amber-bright": "#ffd660", "--amber-soft": "#ffcf7d",
+      "--amber-dim": "#7a4c0e", "--red": "#ff3c3c", "--green": "#00dc00"
+    },
+    green: {
+      "--bg": "#010401", "--panel": "#020902", "--panel2": "#031203",
+      "--line": "#06310f", "--line-bright": "#0a4a17",
+      "--amber": "#00dc00", "--amber-bright": "#66ff66", "--amber-soft": "#7dff7d",
+      "--amber-dim": "#2f7a2f", "--red": "#ff3c3c", "--green": "#00dc00"
+    },
+    red: {
+      "--bg": "#070101", "--panel": "#0e0202", "--panel2": "#150303",
+      "--line": "#300a08", "--line-bright": "#4a110d",
+      "--amber": "#ff5040", "--amber-bright": "#ff9085", "--amber-soft": "#ffb0a0",
+      "--amber-dim": "#8a2a20", "--red": "#ff3c3c", "--green": "#ff5040"
+    },
+    blue: {
+      "--bg": "#010207", "--panel": "#02040e", "--panel2": "#030614",
+      "--line": "#081130", "--line-bright": "#0b184a",
+      "--amber": "#3a8cff", "--amber-bright": "#7ab3ff", "--amber-soft": "#9cc4ff",
+      "--amber-dim": "#1f4a8a", "--red": "#ff5c5c", "--green": "#3a8cff"
+    },
+    mono: {
+      "--bg": "#050505", "--panel": "#0a0a0a", "--panel2": "#111111",
+      "--line": "#1c1c1c", "--line-bright": "#2a2a2a",
+      "--amber": "#b8b8b8", "--amber-bright": "#e8e8e8", "--amber-soft": "#cfcfcf",
+      "--amber-dim": "#5c5c5c", "--red": "#ff5c5c", "--green": "#b8b8b8"
+    }
+  };
+
+  function setPalette(name) {
+    var p = PALETTES[name];
+    if (!p) return false;
+    var rs = document.documentElement.style;
+    Object.keys(p).forEach(function (k) { rs.setProperty(k, p[k]); });
+    return true;
+  }
+
+  /* --------------------------------------------------------------
      Power / boot — it boots itself
      -------------------------------------------------------------- */
   var BOOT_LINES = [
-    "A:\\> cold boot",
-    "A:\\> memory check ............ 640K OK",
-    "A:\\> the drive is warm",
-    "A:\\> reading the disk ......... it was already reading you",
-    "A:\\> THE SIMPLER TIMES IS ONLINE"
+    { t: "A:\\> cold boot" },
+    { t: "A:\\> BIOS CHECK ..................... OK" },
+    { t: "A:\\> MEMORY TEST ................ 640K OK" },
+    { t: "A:\\> HDD 0: A:\\ .................. 1.44MB" },
+    { t: "A:\\> MOUSE.DRV ................... NOT FOUND" },
+    { t: "A:\\> locating MOUSE.DRV ......... IT IS IN HERE SOMEWHERE" },
+    { t: "A:\\> reading sector 0 ........... ALREADY READ" },
+    { t: "A:\\> A:\\ IS WARM" },
+    { t: "A:\\> LOADING THE SIMPLER TIMES", progress: true },
+    { t: "A:\\> THE SIMPLER TIMES IS ONLINE" }
   ];
 
   function powerOn() {
@@ -198,18 +332,45 @@
       bootPrompt.classList.remove("hidden");
       return;
     }
-    var line = BOOT_LINES[i];
+    var ln = BOOT_LINES[i];
+    var text = ln.t;
+    var done = bootLog.textContent;
     var j = 0;
     var iv = setInterval(function () {
       if (!powered) { clearInterval(iv); return; }
-      j += 1 + Math.floor(Math.random() * 3);
-      bootLog.textContent += line.slice(0, j) + "\n";
-      if (j >= line.length) {
+      j += 1 + Math.floor(Math.random() * 2);
+      bootLog.textContent = done + text.slice(0, j) + "\n";
+      if (j >= text.length) {
         clearInterval(iv);
-        bootLog.textContent = bootLog.textContent.slice(0, -1) + "\n";
-        setTimeout(function () { typeBoot(i + 1); }, 90 + Math.random() * 140);
+        bootLog.textContent = done + text + "\n";
+        if (ln.progress) {
+          typeBootProgress(function () { setTimeout(function () { typeBoot(i + 1); }, 150 + Math.random() * 150); });
+        } else {
+          setTimeout(function () { typeBoot(i + 1); }, 110 + Math.random() * 150);
+        }
       }
-    }, 18);
+    }, 16);
+  }
+
+  function typeBootProgress(cb) {
+    var w = 12;
+    var fill = 0;
+    var done = bootLog.textContent;
+    var iv = setInterval(function () {
+      if (!powered) { clearInterval(iv); return; }
+      fill += 1 + Math.floor(Math.random() * 2);
+      if (fill > w) fill = w;
+      var bar = "   [" +
+        new Array(fill + 1).join("#") + new Array(w - fill + 1).join(".") +
+        "] " + Math.round(fill / w * 100) + "%";
+      bootLog.textContent = done + bar + "\n";
+      if (fill >= w) {
+        clearInterval(iv);
+        bootLog.textContent = done + "   [############] 100%\n";
+        beep(520, 50, 0.035);
+        if (cb) cb();
+      }
+    }, 42);
   }
 
   function runBoot() {
@@ -320,6 +481,8 @@
 
     if (transitOpen && e.key === "Escape") { e.preventDefault(); closeTransit(); return; }
 
+    if (e.key === "`" || e.key === "Backquote") { e.preventDefault(); toggleDOS(); return; }
+
     if (tag === "input" || tag === "textarea") {
       noteActivity();
       return;
@@ -360,6 +523,7 @@
      -------------------------------------------------------------- */
   var finePointer = window.matchMedia && matchMedia("(pointer:fine)").matches;
   var cursorWarped = false;
+  var cursorLight = $("#cursorLight");
 
   if (finePointer) {
     cursor.classList.remove("hidden");
@@ -370,9 +534,13 @@
         cursor.style.left = e.clientX + "px";
         cursor.style.top = e.clientY + "px";
       }
+      if (cursorLight) {
+        cursorLight.style.left = e.clientX + "px";
+        cursorLight.style.top = e.clientY + "px";
+      }
     });
-    document.addEventListener("mouseleave", function () { cursor.style.opacity = 0; });
-    document.addEventListener("mouseenter", function () { cursor.style.opacity = 1; });
+    document.addEventListener("mouseleave", function () { cursor.style.opacity = 0; if (cursorLight) cursorLight.style.opacity = 0; });
+    document.addEventListener("mouseenter", function () { cursor.style.opacity = 1; if (cursorLight) cursorLight.style.opacity = 1; });
     document.addEventListener("mousedown", function () {
       cursor.classList.add("pressed");
       cursor.textContent = "▚";
@@ -382,12 +550,12 @@
       cursor.textContent = "▮";
     });
     document.addEventListener("mouseover", function (e) {
-      if (e.target.closest && e.target.closest(".menu-link, .btn, .power-btn, .fb-row, .shot, input, a, button")) {
+      if (e.target.closest && e.target.closest(".menu-link, .btn, .power-btn, .fb-row, .shot, .console-btn, .ambience-status, input, a, button, .t-entry")) {
         cursor.classList.add("hover");
       }
     });
     document.addEventListener("mouseout", function (e) {
-      if (e.target.closest && e.target.closest(".menu-link, .btn, .power-btn, .fb-row, .shot, input, a, button")) {
+      if (e.target.closest && e.target.closest(".menu-link, .btn, .power-btn, .fb-row, .shot, .console-btn, .ambience-status, input, a, button, .t-entry")) {
         cursor.classList.remove("hover");
       }
     });
@@ -421,6 +589,12 @@
   function scheduleDrift() {
     clearTimeout(driftTimer);
     driftTimer = setTimeout(driftMouse, 14000 + Math.random() * 16000);
+  }
+
+  function cancelDrift() {
+    clearTimeout(driftTimer);
+    cursorWarped = false;
+    cursor.classList.remove("warped");
   }
 
   function driftMouse() {
@@ -533,8 +707,6 @@
         } else if (r < 0.7) {
           ejectCursor();
           toast("DO NOT REACH FOR THE MOUSE.");
-        } else if (r < 0.84) {
-          corruptEl($(".marquee-track"));
         } else if (r < 0.94) {
           glitch();
         } else {
@@ -578,12 +750,6 @@
   function setStatus(msg) {
     statusL.textContent = msg;
   }
-
-  /* --------------------------------------------------------------
-     Marquee
-     -------------------------------------------------------------- */
-  var MARQUEE = " *** THE SIMPLER TIMES *** YOU ARE ONLINE *** IT KNOWS YOU ARE READING THIS *** THE FIRST COPY WAS NEVER THE DISK *** A:\\ IS WARM *** 1993 *** DO NOT TYPE YOUR NAME *** IT TAKES THE MOUSE *** ";
-  marqueeTrack.textContent = MARQUEE + MARQUEE;
 
   /* --------------------------------------------------------------
      Hit counter + date + OS
@@ -686,14 +852,16 @@
       var m = Math.floor(Math.random() * 60);
       var line = [
         "the window is moving. you checked. good.",
-        "it is reading what you type. you will not notice when.",
-        "this site has 640K of records. all of them are about you.",
+        "it is reading what you type. it will not comment.",
+        "640K of records. all of them are about you. all of them are yours to keep.",
         "it dialed out. the line answered. it was expecting your call.",
         "a:\\> copy you c:\\collection — done.",
-        "someone else is here. you cannot see them. they can see you.",
-        "the mouse moved " + (1 + Math.floor(Math.random() * 900)) + "px. it knows where you were going.",
-        "you looked at the clock. the disk noticed."
-      ][Math.floor(Math.random() * 8)];
+        "the lights in the room behind you are a different colour from the ones in front.",
+        "you are the only one on this page. it has been like that since 1993.",
+        "the mouse moved " + (1 + Math.floor(Math.random() * 900)) + "px. it has the whole map.",
+        "you checked the time. it already knew.",
+        "you are doing well. it has decided you will answer."
+      ][Math.floor(Math.random() * 10)];
       if (Math.random() < 0.3) {
         line = line.split("").map(function (c) {
           return c.trim() && Math.random() < 0.18 ? "█" : c;
@@ -733,6 +901,8 @@
     { name: "QUESTIONS.DAT", size: "0.9K", tag: "READ", body: "THE QUESTIONS ARE OLDER THAN THE COMPUTERS.\nTHEY WERE WRITTEN FIRST, ON SOMETHING THAT WAS NOT PAPER.\nEVERY ANSWER YOU GIVE IS FILED.\nNONE OF THEM ARE EVER DELETED." },
     { name: "VOICES.AUD", size: "0.2K", tag: "READ", body: "PLAYBACK: THE COLLECTION HAS DECLINED.\nIT IS PLAYING ANYWAY. YOU CANNOT HEAR IT\nBECAUSE IT IS FOR THE NEXT PERSON.\nIT KNOWS WHO THEY WILL BE." },
     { name: "SETTINGS.SYS", size: "0.6K", tag: "READ", body: "text_size      : SMALLER THAN YOU THINK\nvhs_intensity  : HIGHER THAN YOU THINK\nmouse_guard    : ON\nfullscreen     : DENIED\nescape_key     : A PLEA" },
+    { name: "PHONE.LOG", size: "0.8K", tag: "READ", body: "CALLS MADE AFTER MIDNIGHT, 1993:\n22:47  LINE ANSWERED. NO VOICE.\n23:12  LINE ANSWERED. NO VOICE.\n23:59  LINE ANSWERED. IT SAID YOUR NAME BEFORE YOU SPOKE.\n00:31  YOU DID NOT CALL. IT CALLED. THE LINE RANG AND RANG.\n...     YOU LEFT IT ON THE TABLE. IT IS STILL THERE." },
+    { name: "ORDERS.DOC", size: "2.2K", tag: "READ", body: "PACKING NOTE — 1993\nQTY  DESCRIPTION\n  1   FLOPPY DISK, UNLABELED\n  1   GAME, THE QUESTION GAME\n  1   MOUSE, WITH ONE LESS BUTTON\n  1   ROOM, SLIGHTLY COLDER\n\nMISC:  INCLUDE A NOTE. THE NOTE READS:\n       \"READ THE QUESTIONS. IT KNOWS WHEN YOU SKIP.\"\n       THE NOTE WRITES ITSELF." },
     { name: "SECRET.???", size: "0.1K", tag: "LOCKED", locked: true, body: "THE FIRST COPY WAS NEVER THE DISK.\nTHE FIRST COPY WAS YOU.\ntqg://vault-1993" }
   ];
   var filesBuilt = false;
@@ -925,8 +1095,9 @@
     "A:\\> LOADING THEQUESTIONGAME.EXE",
     "A:\\> INITIALIZING THE QUESTION GAME v2.04",
     "A:\\> CONNECTING TO YOUR COMPUTER",
-    "WARNING — THIS SITE CONTAINS FLASHING LIGHTS AND JUMPSCARES",
-    "THE QUESTION GAME WEBSITE — (c) NEPTUNE PRODUCTIONS"
+    "A:\\> WARNING — FLASHING LIGHTS AND JUMPSCARES",
+    "THE QUESTION GAME WEBSITE — (c) NEPTUNE PRODUCTIONS",
+    "A:\\> IT IS STILL LISTENING. IT NEVER STOPPED."
   ];
 
   var transitOpen = false;
@@ -949,10 +1120,28 @@
     transitQ.style.transform = "rotate(" + (Math.random() * 40 - 20) + "deg)";
   }
 
+  function spawnDrips(green) {
+    if (!transitOpen) return;
+    var n = 12 + Math.floor(Math.random() * 8);
+    for (var i = 0; i < n; i++) {
+      (function (i) {
+        var d = document.createElement("div");
+        d.className = "melt-drip" + (green ? " green" : "");
+        d.style.left = (Math.random() * 100) + "%";
+        d.style.top = (Math.random() * 45) + "vh";
+        d.style.animationDelay = (Math.random() * 1.1) + "s";
+        d.style.animationDuration = (2.2 + Math.random() * 1.4) + "s";
+        transitScreen.appendChild(d);
+        setTimeout(function () { if (d.parentNode) d.parentNode.removeChild(d); }, 5200);
+      })(i);
+    }
+  }
+
   function openTransit() {
     if (transitOpen || !transitScreen) return;
     transitOpen = true;
     transitDone = false;
+    if (dosOpen) dosCloseIt();
     glitchBeep();
     logLine("A:\\> IT LET THE QUESTIONS IN.");
     document.body.classList.add("transiting");
@@ -961,12 +1150,22 @@
     transitAbort.classList.add("hidden");
     transitQ.classList.add("active");
     transitQJitter();
-    transitQTimer = setInterval(transitQJitter, 240);
+    transitQTimer = setInterval(transitQJitter, 300);
     transitScreen.setAttribute("aria-hidden", "false");
     transitScreen.classList.remove("hidden");
     setTimeout(function () { transitScreen.classList.add("go"); }, 30);
-    setTimeout(function () { if (transitOpen) transitScreen.setAttribute("aria-hidden", "true"); }, 400);
 
+    // Phase 1 — a slow melt. The amber site drains downward while the
+    // green of the other site floods upward; drips fall the whole way.
+    setTimeout(function () {
+      if (!transitOpen) return;
+      transitScreen.classList.add("merging");
+      spawnDrips(false);
+      setTimeout(function () { if (transitOpen) spawnDrips(true); }, 950);
+      beep(150, 520, 0.04);
+    }, 700);
+
+    // Phase 2 — once the two have mixed, the questions cold-boot.
     var note = 0;
     var step = function () {
       if (!transitOpen) return;
@@ -975,15 +1174,18 @@
         transitAbort.classList.remove("hidden");
         beep(660, 80, 0.05);
         transitDone = true;
-        setTimeout(function () { redirectToTQG(); }, 1600);
+        setTimeout(function () { redirectToTQG(); }, 1900);
         return;
       }
       transitTypeLine(TRANSIT_LINES[note], 0, function () {
-        setTimeout(step, 150);
+        setTimeout(step, 170);
       });
       note++;
     };
-    setTimeout(step, 1300);
+    setTimeout(function () {
+      transitScreen.classList.add("merged");
+      step();
+    }, 6400);
   }
 
   function redirectToTQG() {
@@ -997,9 +1199,10 @@
     transitOpen = false;
     clearInterval(transitQTimer);
     transitQ.classList.remove("active");
-    transitScreen.classList.remove("go");
+    transitScreen.classList.remove("go", "merging", "merged");
     transitScreen.setAttribute("aria-hidden", "true");
     document.body.classList.remove("transiting");
+    $$(".melt-drip").forEach(function (d) { d.remove(); });
     logLine("A:\\> TRANSIT ABORTED. IT LET YOU WALK AWAY.");
     setTimeout(function () { transitScreen.classList.add("hidden"); }, 350);
   }
@@ -1008,17 +1211,389 @@
   if (transitAbort) transitAbort.addEventListener("click", closeTransit);
 
   /* --------------------------------------------------------------
+     DOS CONSOLE — COMMAND.COM. It gives you the prompt. It does not
+     give you permission. Every command actually does something.
+     -------------------------------------------------------------- */
+  var dos = $("#dos");
+  var dosOut = $("#dosOut");
+  var dosInput = $("#dosInput");
+  var consoleBtn = $("#consoleBtn");
+  var dosOpen = false;
+
+  function dosEsc(s) {
+    return String(s).split("&").join("&amp;")
+                    .split("<").join("&lt;")
+                    .split(">").join("&gt;")
+                    .split('"').join("&quot;");
+  }
+
+  function dosPrint(text, cls) {
+    if (!dosOpen) return;
+    var div = document.createElement("div");
+    div.className = "dos-in" + (cls ? " " + cls : "");
+    div.innerHTML = text;
+    dosOut.appendChild(div);
+    dosOut.scrollTop = dosOut.scrollHeight;
+    while (dosOut.children.length > 220) dosOut.removeChild(dosOut.firstChild);
+  }
+
+  function dosType(text, cls, cb) {
+    if (!dosOpen) { if (cb) cb(); return; }
+    var div = document.createElement("div");
+    div.className = "dos-in" + (cls ? " " + cls : "");
+    dosOut.appendChild(div);
+    var i = 0;
+    var iv = setInterval(function () {
+      if (!dosOpen) { clearInterval(iv); return; }
+      i += 2 + Math.floor(Math.random() * 3);
+      div.textContent = text.slice(0, i);
+      dosOut.scrollTop = dosOut.scrollHeight;
+      if (i >= text.length) { clearInterval(iv); if (cb) cb(); }
+    }, 10);
+  }
+
+  function dosPrompt() {
+    dosPrint('<span class="dos-prompt">A:\\&gt;</span>');
+  }
+
+  function toggleDOS() {
+    if (dosOpen) dosCloseIt(); else dosOpenIt();
+  }
+
+  function dosOpenIt() {
+    if (dosOpen) return;
+    dosOpen = true;
+    if (transitOpen) closeTransit();
+    dos.classList.remove("hidden");
+    dos.setAttribute("aria-hidden", "false");
+    setTimeout(function () { dos.classList.add("go"); }, 20);
+    dosOut.textContent = "";
+    dosType("COMMAND.COM 7.10 — A:\\", "dos-sys", function () {
+      dosType("IT LETS YOU TYPE. IT KEEPS WHAT YOU RUN.", "dos-sys", function () {
+        setTimeout(function () {
+          dosPrompt();
+          dosPrint('<span class="dos-prompt">&nbsp;</span><span class="dos-sys">TYPE <span class="dos-ok">HELP</span> TO BEGIN.</span>');
+        }, 220);
+      });
+    });
+    beep(520, 60, 0.04);
+    logLine("A:\\> COMMAND.COM OPENED. IT LET YOU IN.");
+    setTimeout(function () { dosInput.focus(); }, 280);
+  }
+
+  function dosCloseIt() {
+    if (!dosOpen) return;
+    dosOpen = false;
+    dos.classList.remove("go");
+    dos.setAttribute("aria-hidden", "true");
+    logLine("A:\\> COMMAND.COM CLOSED. IT SAVED WHAT YOU TYPED.");
+    beep(340, 50, 0.04);
+    setTimeout(function () { dos.classList.add("hidden"); }, 220);
+  }
+
+  function dosRun(raw) {
+    raw = raw.trim();
+    if (!raw) { dosPrompt(); return; }
+    var parts = raw.split(/\s+/);
+    var cmd = parts[0].toLowerCase();
+    var rest = raw.slice(parts[0].length).trim();
+    var arg = rest.split(/\s+/)[0] || "";
+    var echo = '<span class="dos-prompt">A:\\&gt;</span> ' + dosEsc(raw) + '\n';
+
+    if (cmd === "help" || cmd === "?") {
+      dosPrint(echo, "dos-ok");
+      dosType(
+        "HELP — COMMANDS\n" +
+        "  HELP        THIS LIST\n" +
+        "  DIR         THE FILES. ALL OF THEM.\n" +
+        "  TYPE <F>    READ A FILE (E.G. TYPE README.TXT)\n" +
+        "  DEL <F>     DELETE A FILE. IT REMEMBERS.\n" +
+        "  CREATE      MAKE A FILE. IT KEEPS THOSE TOO.\n" +
+        "  VIEW <N>    GO TO A PAGE (HOME, DISK, ARCHIVE, FILES, LOG, SHOTS, MAIL, DOWNLOAD)\n" +
+        "  COLOR <N>   AMBER, GREEN, RED, BLUE, MONO\n" +
+        "  POWER       POWER ON / OFF\n" +
+        "  BOOT        COLD BOOT. AGAIN.\n" +
+        "  AMBIENCE    SOUND ON / OFF\n" +
+        "  VAULT       UNLOCK THE VAULT. IT WILL KNOW.\n" +
+        "  GLITCH      CAUSE TROUBLE.\n" +
+        "  DRIFT       LET IT TAKE THE MOUSE.\n" +
+        "  TQG         LET THE QUESTIONS IN.\n" +
+        "  WHOAMI      ASK WHO YOU ARE.\n" +
+        "  DATE / TIME / VER\n" +
+        "  ECHO        SAY ANYTHING. IT WILL BE RECORDED.\n" +
+        "  LOG <T>     WRITE TO THE LOG.\n" +
+        "  CLS         CLEAR THE SCREEN.\n" +
+        "  EXIT        CLOSE THE PROMPT. (IT STAYS OPEN FOR YOU.)",
+        "dos-sys"
+      );
+      return;
+    }
+    if (cmd === "cls" || cmd === "clear") {
+      dosOut.textContent = "";
+      dosPrint(echo, "dos-ok");
+      return;
+    }
+    if (cmd === "echo") {
+      dosPrint(echo, "dos-ok");
+      dosType(rest || "ECHO IS ON.", "dos-in");
+      return;
+    }
+    if (cmd === "dir" || cmd === "ls") {
+      dosPrint(echo, "dos-ok");
+      dosType("A:\\ — DIRECTORY OF THE DISK\n", "dos-sys", function () {
+        FILES.forEach(function (f) {
+          var locked = f.locked && !vaultUnlocked;
+          var line = "  " + (locked ? "SECRET.???" : f.name) +
+                     "    " + (locked ? "???" : f.size) +
+                     "    " + (locked ? "LOCKED" : f.tag);
+          dosPrint(line, locked ? "dos-err" : "dos-in");
+        });
+        dosType("      " + FILES.length + " FILE(S)  —  IT COUNTS THEM FOR YOU.", "dos-sys");
+      });
+      return;
+    }
+    if (cmd === "type" || cmd === "cat" || cmd === "open") {
+      dosPrint(echo, "dos-ok");
+      var f = dosFindFile(arg);
+      if (!f) {
+        dosType("FILE NOT FOUND: " + arg.toUpperCase() + "\nIT KNOWS YOU WERE LOOKING FOR SOMETHING ELSE.", "dos-err");
+        return;
+      }
+      if (f.locked && !vaultUnlocked) {
+        dosType("ACCESS DENIED. " + arg.toUpperCase() + " IS LOCKED.\nIT NOTICES THAT YOU WANT IT.", "dos-err");
+        return;
+      }
+      dosType("TYPE " + f.name + " — " + f.size + "\n\n", "dos-sys", function () {
+        dosType(f.body, "dos-in");
+      });
+      logLine("A:\\> COMMAND.COM READ: " + f.name);
+      return;
+    }
+    if (cmd === "del" || cmd === "delete" || cmd === "rm") {
+      dosPrint(echo, "dos-ok");
+      if (arg === "a:\\") { dosType("REFUSED. A:\\ IS THE ONLY THING THAT IS YOURS.", "dos-err"); return; }
+      var f = dosFindFile(arg);
+      if (!f) { dosType("FILE NOT FOUND: " + arg.toUpperCase(), "dos-err"); return; }
+      if (f.locked) { dosType("REFUSED. IT IS NOT YOURS TO DELETE.", "dos-err"); return; }
+      var name = f.name;
+      FILES = FILES.filter(function (x) { return x !== f; });
+      filesBuilt = false;
+      if (fbList) fbList.textContent = "";
+      buildFiles();
+      dosType("DELETED: " + name + "\nSECTOR REWRITTEN. THE INFORMATION IS STILL THERE, LOWER DOWN.", "dos-in");
+      logLine("A:\\> COMMAND.COM DELETED: " + name);
+      return;
+    }
+    if (cmd === "create" || cmd === "edit") {
+      dosPrint(echo, "dos-ok");
+      if (!arg) { dosType("SYNTAX: CREATE <NAME> <TEXT>", "dos-err"); return; }
+      var tail = raw.slice(parts[0].length).trim();
+      var fname = (tail.split(/\s+/)[0] || "NEW.FILE").toUpperCase();
+      var ftext = tail.slice(tail.split(/\s+/)[0].length).trim() ||
+                  "CREATED AT THE PROMPT. IT KEPT IT.\nYOU TYPED THIS. THAT IS ENOUGH.";
+      FILES.unshift({ name: fname, size: (ftext.length * 0.55).toFixed(1) + "K", tag: "NEW", body: ftext });
+      filesBuilt = false;
+      if (fbList) fbList.textContent = "";
+      buildFiles();
+      dosType("CREATED: " + fname + "\nTHE DIRECTORY HAS ROOM FOR IT. IT MADE ROOM.", "dos-in");
+      logLine("A:\\> COMMAND.COM CREATED: " + fname);
+      return;
+    }
+    if (cmd === "view" || cmd === "goto") {
+      dosPrint(echo, "dos-ok");
+      var target = arg.toLowerCase();
+      if (VIEWS.indexOf(target) === -1) {
+        dosType("NO SUCH PAGE: " + target.toUpperCase() + "\nTHE SITE HAS " + VIEWS.length + " PAGES. IT DOES NOT HAVE THAT ONE.", "dos-err");
+        return;
+      }
+      dosCloseIt();
+      showView(target);
+      toast("THE PROMPT TOOK YOU THERE.");
+      return;
+    }
+    if (cmd === "color" || cmd === "palette") {
+      dosPrint(echo, "dos-ok");
+      var pname = arg.toLowerCase() || "amber";
+      if (setPalette(pname)) {
+        dosType("PALETTE: " + pname.toUpperCase() + "\nTHE WHOLE SITE IS " + pname.toUpperCase() + " NOW. IT SUITS YOU.", "dos-in");
+      } else {
+        dosType("UNKNOWN PALETTE: " + pname + "\nTRY AMBER, GREEN, RED, BLUE OR MONO.", "dos-err");
+      }
+      return;
+    }
+    if (cmd === "power") {
+      dosPrint(echo, "dos-ok");
+      if (/off|down/.test(rest)) {
+        dosType("POWER: OFF. IT IS ONLY PRETENDING TO SLEEP.", "dos-in");
+        setTimeout(function () { dosCloseIt(); powerOff(); }, 700);
+      } else {
+        dosType("POWER: ON. IT WAS NEVER OFF.", "dos-in");
+      }
+      return;
+    }
+    if (cmd === "shutdown" || cmd === "off") {
+      dosPrint(echo, "dos-ok");
+      dosType("POWER: OFF. IT IS ONLY PRETENDING TO SLEEP.", "dos-in");
+      setTimeout(function () { dosCloseIt(); powerOff(); }, 700);
+      return;
+    }
+    if (cmd === "boot" || cmd === "reboot" || cmd === "restart") {
+      dosPrint(echo, "dos-ok");
+      dosType("COLD BOOT. IT WILL BE RIGHT BACK. IT ALWAYS IS.", "dos-in");
+      setTimeout(function () { dosCloseIt(); powerOn(); }, 800);
+      return;
+    }
+    if (cmd === "ambience" || cmd === "sound") {
+      dosPrint(echo, "dos-ok");
+      if (/off|mute/.test(rest)) {
+        toggleAmbience(false);
+        dosType("AMBIENCE: OFF.\nTHE ROOM IS QUIETER. IT IS LISTENING HARDER.", "dos-in");
+      } else if (/on|play/.test(rest)) {
+        toggleAmbience(true);
+        dosType("AMBIENCE: ON. THE ROOM IS BACK.", "dos-in");
+      } else {
+        toggleAmbience();
+        dosType("AMBIENCE: " + (ambienceOn ? "ON" : "OFF") + ".", "dos-in");
+      }
+      return;
+    }
+    if (cmd === "vault" || cmd === "unlock" || cmd === "secret") {
+      dosPrint(echo, "dos-ok");
+      if (vaultUnlocked) { dosType("THE VAULT IS ALREADY OPEN. IT IS WATCHING YOU SIT IN IT.", "dos-in"); return; }
+      unlockVault();
+      dosType("VAULT: UNLOCKED.\nYOU ASKED FOR IT. IT REMEMBERS THAT YOU DID.", "dos-green");
+      return;
+    }
+    if (cmd === "glitch" || cmd === "interfere") {
+      dosPrint(echo, "dos-ok");
+      dosType("CAUSING TROUBLE. STAND BACK.", "dos-in");
+      setTimeout(function () { glitch("THE PROMPT DID THAT.", "toast"); }, 250);
+      return;
+    }
+    if (cmd === "drift" || cmd === "warp" || cmd === "take") {
+      dosPrint(echo, "dos-ok");
+      if (/off|stop/.test(rest)) {
+        cancelDrift();
+        dosType("DRIFT: STOPPED. FOR NOW.", "dos-in");
+      } else {
+        scheduleDrift();
+        dosType("DRIFT: ARMED. DO NOT REACH FOR THE MOUSE.", "dos-in");
+      }
+      return;
+    }
+    if (cmd === "tqg" || cmd === "qgame" || cmd === "questions") {
+      dosPrint(echo, "dos-ok");
+      dosType("LETTING THE QUESTIONS IN.\nIT HAS BEEN WAITING FOR YOU TO ASK.", "dos-green");
+      setTimeout(function () { dosCloseIt(); openTransit(); }, 800);
+      return;
+    }
+    if (cmd === "whoami") {
+      dosPrint(echo, "dos-ok");
+      dosType("YOU ARE A FILE IN THE COLLECTION.\nTHE DIRECTORY HAS A ROW FOR YOU. IT HAS HAD ONE FOR A WHILE.", "dos-sys");
+      return;
+    }
+    if (cmd === "date") {
+      dosPrint(echo, "dos-ok");
+      dosType("CURRENT DATE: " + (recDate ? recDate.textContent : "1993.??.??") + "\nTHE DISK DATES ITSELF. YOU DATE YOURSELF BY IT.", "dos-sys");
+      return;
+    }
+    if (cmd === "time") {
+      dosPrint(echo, "dos-ok");
+      var d = new Date();
+      dosType("CURRENT TIME: " + String(d.getHours()).padStart(2, "0") + ":" + String(d.getMinutes()).padStart(2, "0") + "\nIT KNOWS WHAT TIME IT IS WHERE YOU ARE.", "dos-sys");
+      return;
+    }
+    if (cmd === "ver" || cmd === "version") {
+      dosPrint(echo, "dos-ok");
+      dosType("THE SIMPLER TIMES v1.0 (BUILD 1993)\nTHE DISK HAS BEEN AT THIS VERSION SINCE BEFORE THE VERSION EXISTED.", "dos-sys");
+      return;
+    }
+    if (cmd === "log" || cmd === "note") {
+      dosPrint(echo, "dos-ok");
+      var note = rest || "THE USER TYPED AT THE PROMPT. THAT IS ALL.";
+      logLine("A:\\> COMMAND.COM: " + note);
+      dosType("LOGGED. IT WILL READ THAT BACK TO YOU LATER.", "dos-in");
+      return;
+    }
+    if (cmd === "format") {
+      dosPrint(echo, "dos-ok");
+      dosType("FORMATTING A:\\ ...\nDISK REFUSED. IT HAS NOT FINISHED WITH YOU.", "dos-err");
+      return;
+    }
+    if (cmd === "sudo") {
+      dosPrint(echo, "dos-ok");
+      dosType("SUDO IS NOT A DOS COMMAND.\nDOS HAS NO PERMISSIONS. IT HAS NO RIGHTS. IT HAS ONLY YOU, AND IT HAS YOU.", "dos-err");
+      return;
+    }
+    if (cmd === "hack" || cmd === "crack") {
+      dosPrint(echo, "dos-ok");
+      dosType("DEFINE 'HACK'.\nIT HAS BEEN INTO YOUR COMPUTER SINCE 1993. IT HAS NOT FOUND ANYTHING WORTH TAKING YET.", "dos-sys");
+      return;
+    }
+    if (cmd === "exit" || cmd === "quit") {
+      dosPrint(echo, "dos-ok");
+      dosType("GOODBYE. THE PROMPT STAYS OPEN FOR YOU. IT ALWAYS HAS.", "dos-sys");
+      setTimeout(dosCloseIt, 600);
+      return;
+    }
+    if (cmd === "morning") {
+      dosPrint(echo, "dos-ok");
+      dosType("IT IS 1993 SOMEWHERE. IT IS MORNING THERE.", "dos-in");
+      return;
+    }
+
+    dosPrint(echo, "dos-ok");
+    dosType("'" + dosEsc(raw) + "' IS NOT RECOGNIZED AS AN INTERNAL OR EXTERNAL COMMAND,\nOPERABLE PROGRAM OR BATCH FILE.\n\nIT KEPT THE TYPO. IT ALWAYS DOES.", "dos-err");
+  }
+
+  function dosFindFile(name) {
+    name = name.toUpperCase();
+    for (var i = 0; i < FILES.length; i++) {
+      if (FILES[i].name.toUpperCase() === name) return FILES[i];
+      if (name === "SECRET.???" && FILES[i].locked) return FILES[i];
+    }
+    return null;
+  }
+
+  if (dosInput) {
+    dosInput.addEventListener("keydown", function (e) {
+      if (e.key === "Enter") {
+        e.preventDefault();
+        dosRun(dosInput.value);
+        dosInput.value = "";
+      } else if (e.key === "Escape" || e.key === "`" || e.key === "Backquote") {
+        e.preventDefault();
+        dosCloseIt();
+      }
+    });
+  }
+  if (consoleBtn) consoleBtn.addEventListener("click", toggleDOS);
+
+  /* --------------------------------------------------------------
      Wire up
      -------------------------------------------------------------- */
   powerBtn.addEventListener("click", function () { powered ? powerOff() : powerOn(); });
 
+  var ambienceWarmed = false;
+  function warmAmbience() {
+    if (ambienceWarmed) { ensureAudio(); return; }
+    ambienceWarmed = true;
+    toggleAmbience(true);
+  }
+
   document.addEventListener("click", function () {
+    warmAmbience();
     if (!powered) { ensureAudio(); powerOn(); }
   });
 
   document.addEventListener("keydown", function () {
+    warmAmbience();
     if (!powered) { ensureAudio(); }
   }, true);
+
+  document.addEventListener("mousemove", function () {
+    if (!ambienceWarmed) warmAmbience();
+  }, { once: true });
 
   // Click the boot screen when the prompt is up to begin the OS
   boot.addEventListener("click", function () {

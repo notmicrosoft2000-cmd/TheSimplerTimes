@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=VT323&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=4">
+  <link rel="stylesheet" href="css/style.css?v=5">
 </head>
 <body>
 
@@ -41,6 +41,7 @@
       <nav class="menubar" aria-label="Site navigation">
         <a class="menu-link" href="#home" data-view="home">HOME</a>
         <a class="menu-link" href="#disk" data-view="disk">THE DISK</a>
+        <a class="menu-link" href="#archive" data-view="archive">THE ARCHIVE</a>
         <a class="menu-link" href="#files" data-view="files">THE FILES</a>
         <a class="menu-link" href="#log" data-view="log">THE LOG</a>
         <a class="menu-link" href="#shots" data-view="shots">SCREENSHOTS</a>
@@ -49,9 +50,7 @@
         <a class="menu-link vault-link hidden" href="#vault" data-view="vault">THE VAULT</a>
         <a class="menu-link ext" href="#tqg" data-view="tqg">THE QUESTION GAME ↗</a>
       </nav>
-    </header>
-
-    <div class="marquee" aria-hidden="true"><div class="marquee-track" id="marqueeTrack"></div></div>
+      </header>
 
     <main class="views" id="views">
 
@@ -98,6 +97,19 @@
           <p>Non-system disk or disk error.<br>Replace and press any key when ready.</p>
           <p class="red">It is not asking you to replace the disk. It is asking if you have a better one.</p>
         </div>
+      </section>
+
+      <section class="view" id="archive" data-view="archive">
+        <h2 class="section-title"><span class="red">&gt;</span> THE ARCHIVE</h2>
+        <p class="section-sub">A short chronology of the disk, compiled from the records it keeps. It corrects nothing.</p>
+        <div class="timeline">
+          <div class="t-entry"><span class="t-year">1993</span><div class="t-body"><h3 class="t-title">THE TABLE</h3><p>An unclaimed table at a computer fair. Disks with no label, no vendor, and no memory of being carried in. People take one out of curiosity. Nobody comes back to complain.</p></div></div>
+          <div class="t-entry"><span class="t-year">1994</span><div class="t-body"><h3 class="t-title">THE MANUAL</h3><p>A single-page manual appears in a library, printed on a laser printer that was not yet on sale. It describes exactly one command: <code>WARM</code>. It is correct.</p></div></div>
+          <div class="t-entry"><span class="t-year">1999</span><div class="t-body"><h3 class="t-title">THE COLLECTION</h3><p>A collector starts keeping the disks they find. The disks had already been keeping him. His name is in the directory. He never finds the file.</p></div></div>
+          <div class="t-entry"><span class="t-year">2007</span><div class="t-body"><h3 class="t-title">THE QUESTION GAME</h3><p>The questions surface separately — on a defunct message board, inside a single-file program, on a mislabeled VHS tape. The disk does not mention it. It waits.</p></div></div>
+          <div class="t-entry"><span class="t-year">NOW</span><div class="t-body"><h3 class="t-title">THIS PAGE</h3><p>You are reading this entry. The archive keeps a copy of every page it has been opened on. It will keep this one. It will keep you near it.</p></div></div>
+        </div>
+        <p class="section-sub dim">THE ARCHIVE UPDATES ITSELF. IT WILL NOTE THAT YOU READ THIS FAR.</p>
       </section>
 
       <section class="view" id="files" data-view="files">
@@ -238,7 +250,11 @@
 
     <footer class="statusbar">
       <span class="sb-l" id="statusL">A:\&gt; READY</span>
-      <span class="sb-r"><span id="hitCounter" title="DO NOT CLICK THIS">000000</span> VISITS · <span id="recDate">1993.??.??</span> · <span id="recOs">????</span> · <span id="statusR">CONNECTED 2400 BPS</span></span>
+      <span class="sb-r">
+        <button class="console-btn" id="consoleBtn" type="button" title="COMMAND.COM — TOGGLE WITH `">A:\&gt;_</button>
+        <span class="ambience-status" id="ambTag">AMBIENCE</span>
+        <span id="hitCounter" title="DO NOT CLICK THIS">000000</span> VISITS · <span id="recDate">1993.??.??</span> · <span id="recOs">????</span> · <span id="statusR">CONNECTED 2400 BPS</span>
+      </span>
     </footer>
 
   </div>
@@ -253,12 +269,26 @@
   <div class="toast hidden" id="toast" aria-hidden="true"></div>
   <div class="cursor hidden" id="cursor" aria-hidden="true">▮</div>
 
-  <div class="transit hidden" id="transitScreen" role="dialog" aria-modal="true" aria-label="THE QUESTION GAME — connecting" aria-hidden="true">
+  <div class="transit hidden" id="transitScreen" role="dialog" aria-modal="true" aria-label="THE QUESTION GAME — merging" aria-hidden="true">
+    <div class="melt-up" id="meltUp" aria-hidden="true"></div>
+    <div class="melt-down" id="meltDown" aria-hidden="true"></div>
     <div class="transit-q" id="transitQ" aria-hidden="true">?</div>
     <div class="transit-inner">
       <div class="transit-log" id="transitLog" aria-live="polite"></div>
       <div class="transit-prompt hidden" id="transitPrompt">REDIRECTING TO THE QUESTION GAME . . .</div>
       <div class="transit-abort hidden" id="transitAbort">[ ESC ] ABORT</div>
+    </div>
+  </div>
+
+  <div class="dos hidden" id="dos" role="dialog" aria-modal="true" aria-label="COMMAND.COM" aria-hidden="true">
+    <div class="dos-head">
+      <span>A:\&gt; COMMAND.COM — DO WHAT YOU WANT</span>
+      <span class="dos-head-r">[ ` ] CLOSE</span>
+    </div>
+    <div class="dos-out" id="dosOut" aria-live="polite"></div>
+    <div class="dos-line">
+      <span class="dos-prompt">A:\&gt;</span>
+      <input class="dos-input" id="dosInput" type="text" autocomplete="off" spellcheck="false" maxlength="120" aria-label="Command">
     </div>
   </div>
 
@@ -268,6 +298,8 @@
     <button class="lb-close" id="lbClose" type="button" aria-label="Close">✕ CLOSE</button>
   </div>
 
+  <div class="cursor-light" id="cursorLight" aria-hidden="true"></div>
+
 </body>
-<script src="js/main.js?v=4"></script>
+<script src="js/main.js?v=5"></script>
 </html>
