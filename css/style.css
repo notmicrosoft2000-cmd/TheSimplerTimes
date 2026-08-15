@@ -365,106 +365,134 @@ a:hover{color:var(--amber-bright)}
 }
 
 /* ---------------------------------------------------------------
-   THE QUESTION GAME — in-site merge sequence (no iframes).
-   A band of the original's green palette melts down over the amber
-   portal; the site underneath shifts amber→green while a miniature
-   of the question game types itself in. Pure CSS/JS, local assets.
+   Cursor — a press/hover variant, and it has hands of its own
    --------------------------------------------------------------- */
-.merge-screen{
+.cursor{transition:transform .05s ease,color .1s ease}
+.cursor.hover{transform:translate(-1px,-1px) scale(1.18);color:var(--amber);text-shadow:0 0 8px rgba(255,176,32,.8)}
+.cursor.pressed{transform:translate(0,0) scale(.78);color:var(--red);text-shadow:0 0 8px rgba(255,60,60,.8)}
+
+/* ---------------------------------------------------------------
+   THE FILES — the disk's directory
+   --------------------------------------------------------------- */
+.filebrowser{
+  border:1px solid var(--line-bright);background:var(--panel);
+  max-width:680px;margin-bottom:1.2rem;
+  box-shadow:inset 0 0 30px rgba(0,0,0,.4);
+}
+.fb-path{
+  font-family:var(--vt);letter-spacing:.12em;color:var(--amber-bright);
+  border-bottom:1px solid var(--line);padding:.45rem .9rem;font-size:1rem;
+}
+.fb-list{display:grid}
+.fb-row{
+  display:flex;gap:1rem;align-items:baseline;cursor:none;
+  padding:.4rem .9rem;border-bottom:1px solid var(--line);
+  font-size:.85rem;color:var(--amber-soft);
+  transition:background .15s,color .15s;
+}
+.fb-row:last-child{border-bottom:none}
+.fb-row:hover{background:rgba(255,176,32,.08);color:var(--amber-bright)}
+.fb-name{font-family:var(--vt);letter-spacing:.1em;color:var(--amber);min-width:150px}
+.fb-row:hover .fb-name{color:var(--amber-bright)}
+.fb-size{color:var(--amber-dim);min-width:60px;font-size:.75rem}
+.fb-tag{color:var(--amber-dim);font-size:.75rem;margin-left:auto}
+.fb-row.locked .fb-name{color:var(--red)}
+.fb-row.locked:hover{background:rgba(255,60,60,.07)}
+.fb-row.denied{animation:fbdeny .3s steps(2)}
+@keyframes fbdeny{25%{transform:translate(-3px,0)}75%{transform:translate(3px,0)}}
+.fb-read{
+  border-top:1px solid var(--line-bright);background:var(--panel);
+  padding:.9rem;
+}
+.fb-title{font-family:var(--vt);color:var(--amber-bright);letter-spacing:.12em;margin-bottom:.5rem;font-size:1rem}
+.fb-body{white-space:pre-wrap;color:var(--amber-soft);font-size:.85rem;line-height:1.7;min-height:2em}
+.fb-body.typing::after{content:"▌";color:var(--amber);animation:blink .8s steps(1) infinite}
+
+/* ---------------------------------------------------------------
+   SCREENSHOTS — the disk, on disk
+   --------------------------------------------------------------- */
+.shots{
+  display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));
+  gap:1.2rem;max-width:980px;
+}
+.shot{
+  border:1px solid var(--line-bright);background:var(--panel);cursor:none;
+  padding:.5rem .5rem .7rem;
+  box-shadow:inset 0 0 30px rgba(0,0,0,.4);
+  transition:border-color .2s,box-shadow .2s,transform .2s;
+}
+.shot:hover{border-color:var(--amber);box-shadow:0 0 24px rgba(255,176,32,.15);transform:translateY(-3px)}
+.shot img{width:100%;display:block;image-rendering:pixelated;filter:sepia(.25) contrast(1.05)}
+.shot figcaption{
+  font-family:var(--vt);color:var(--amber-dim);letter-spacing:.12em;
+  font-size:.85rem;padding:.5rem .2rem 0;text-align:center;
+}
+.shot:hover figcaption{color:var(--amber)}
+
+.lightbox{
+  position:fixed;inset:0;z-index:98;background:rgba(2,1,0,.94);
+  display:flex;flex-direction:column;align-items:center;justify-content:center;
+  gap:1rem;padding:clamp(1rem,4vw,3rem);
+}
+.lightbox img{max-width:92vw;max-height:74vh;image-rendering:pixelated;filter:sepia(.25) contrast(1.05);box-shadow:0 0 40px rgba(255,176,32,.2)}
+.lb-cap{font-family:var(--vt);color:var(--amber);letter-spacing:.14em;text-align:center;max-width:720px}
+.lb-close{
+  border:1px solid var(--line-bright);background:var(--panel);color:var(--amber);
+  font-family:var(--vt);letter-spacing:.12em;font-size:1rem;padding:.4rem 1.1rem;
+}
+.lb-close:hover{color:var(--amber-bright);border-color:var(--amber)}
+
+/* ---------------------------------------------------------------
+   TRANSIT — the questions take over the portal (to THE QUESTION GAME)
+   --------------------------------------------------------------- */
+.transit{
   position:fixed;inset:0;z-index:200;overflow:hidden;
-  background:var(--bg);color:var(--amber);
+  background:rgba(4,4,4,.55);color:var(--amber);
   font-family:var(--mono);
   opacity:0;pointer-events:none;
   display:flex;flex-direction:column;
-  transition:opacity .25s ease;
+  transition:opacity .3s ease;
 }
-.merge-screen.go{opacity:1;pointer-events:auto}
-.merge-screen .hidden{display:none !important}
+.transit.go{opacity:1;pointer-events:auto}
+.transit .hidden{display:none !important}
 
-.merge-band{
-  position:absolute;top:0;left:0;width:100%;height:0;
-  background:linear-gradient(180deg,#00dc00 0%,#b9ffb9 55%,#66ff66 100%);
-  box-shadow:0 0 40px rgba(0,220,0,.5);
+.transit-q{
+  position:absolute;top:-40px;left:-40px;pointer-events:none;
+  font-family:var(--vt);font-size:2rem;line-height:1;
+  color:var(--green,#00dc00);text-shadow:0 0 12px rgba(0,220,0,.7);
+  opacity:0;
 }
-.merge-screen.go .merge-band{height:100%;transition:height 2.6s cubic-bezier(.7,.05,.9,.3)}
-.merge-fringe{
-  position:absolute;bottom:-14px;left:-4%;width:108%;height:28px;
-  background:
-    repeating-linear-gradient(0deg,rgba(0,220,0,.85) 0 3px,rgba(4,4,4,0) 3px 6px),
-    repeating-linear-gradient(90deg,rgba(4,4,4,.3) 0 22px,rgba(4,4,4,0) 22px 41px);
-  animation:fringe 1.4s steps(12) infinite;
-}
-@keyframes fringe{
-  0%{transform:translate(0,0)}
-  25%{transform:translate(-6px,1px)}
-  50%{transform:translate(5px,-2px)}
-  75%{transform:translate(-4px,2px)}
-  100%{transform:translate(0,0)}
-}
-.merge-drip{
-  position:absolute;top:-12vh;width:3px;
-  background:linear-gradient(180deg,rgba(0,220,0,0),#00dc00);
-  opacity:0;animation:drip 1.7s linear forwards;
-}
-@keyframes drip{0%{opacity:0}15%{opacity:.9}100%{top:112vh;opacity:.55}}
+.transit-q.active{opacity:1}
 
-.merge-body{
+.transit-inner{
   position:relative;flex:1;display:flex;flex-direction:column;
-  opacity:0;transform:translateY(10px);
+  align-items:center;justify-content:center;gap:1.4rem;
+  padding:clamp(1.2rem,4vw,3rem);
+  opacity:0;transform:translateY(8px);
   transition:opacity .6s ease,transform .6s ease;
 }
-.merge-screen.go .merge-body{opacity:1;transform:none}
-.merge-brand{
-  flex:0 0 auto;display:flex;justify-content:space-between;align-items:center;
-  border-bottom:1px solid #2a2a2a;background:#0a0a0a;
-  padding:.45rem clamp(1rem,3vw,2rem);
-  font-family:var(--vt);font-size:clamp(1rem,2.2vw,1.4rem);letter-spacing:.14em;color:#66ff66;
+.transit.go .transit-inner{opacity:1;transform:none}
+.transit-log{
+  font-size:clamp(.8rem,1.6vw,1rem);line-height:1.9;color:#66ff66;
+  text-shadow:0 0 6px rgba(0,220,0,.5);
+  white-space:pre-wrap;min-height:2em;
 }
-.merge-brand span{color:#0a5c1d;font-size:.8em;letter-spacing:.1em}
-.merge-marquee{
-  flex:0 0 auto;overflow:hidden;white-space:nowrap;border-bottom:1px solid #1b1b1b;
-  background:#0a0a0a;font-family:var(--vt);font-size:clamp(.8rem,1.5vw,1rem);
-  letter-spacing:.08em;color:#0a5c1d;padding:.14rem .5rem;
+.transit-prompt{
+  font-family:var(--vt);color:var(--green,#00dc00);
+  letter-spacing:.18em;font-size:clamp(1rem,2.2vw,1.4rem);
+  animation:blink 1s steps(1) infinite;
 }
-.merge-marquee-track{display:inline-block;animation:merge-marquee 42s linear infinite}
-@keyframes merge-marquee{from{transform:translateX(0)}to{transform:translateX(-50%)}}
+.transit-abort{
+  font-family:var(--vt);color:var(--amber-dim);letter-spacing:.14em;font-size:.85rem;
+}
 
-.merge-inner{
-  flex:1;overflow-y:auto;max-width:880px;margin:0 auto;
-  padding:clamp(1.2rem,3.5vw,2.6rem) clamp(1.2rem,5vw,2.6rem);
-}
-.merge-title{
-  font-family:var(--vt);font-weight:400;letter-spacing:.06em;line-height:1;
-  font-size:clamp(2.4rem,8vw,5.6rem);color:#66ff66;
-  text-shadow:0 0 18px rgba(0,220,0,.5);position:relative;margin:.2rem 0 .6rem;
-}
-.merge-title::before,.merge-title::after{content:attr(data-text);position:absolute;inset:0;opacity:.7;pointer-events:none}
-.merge-title::before{color:#ff3c3c;transform:translate(2px,0);z-index:-1}
-.merge-title::after{color:#00dc00;transform:translate(-2px,0);z-index:-2}
-.merge-tag{font-size:clamp(.95rem,1.8vw,1.15rem);color:#b9ffb9;max-width:640px;margin-bottom:1.4rem}
-.merge-note{min-height:2.6em;font-size:.95rem;color:#00dc00;max-width:640px;white-space:pre-wrap;line-height:1.8}
-.merge-actions{display:flex;flex-wrap:wrap;gap:1rem;margin-top:2rem}
-.merge-close{
-  position:absolute;top:.6rem;right:.8rem;z-index:5;
-  border:1px solid #2a2a2a;background:#0a0a0a;color:#0a5c1d;
-  font-family:var(--vt);letter-spacing:.1em;font-size:.85rem;padding:.3rem .7rem;
-}
-.merge-close:hover{color:#66ff66;border-color:#00dc00}
-
-.merge-screen .btn{border-color:#2a2a2a;color:#00dc00;box-shadow:2px 2px 0 #000,inset 0 0 0 1px rgba(0,220,0,.1)}
-.merge-screen .btn:hover{background:rgba(0,220,0,.12);color:#66ff66}
-.merge-screen .btn-primary{background:#00dc00;color:#041400;box-shadow:2px 2px 0 #000,0 0 14px rgba(0,220,0,.35)}
-.merge-screen .btn-primary:hover{background:#66ff66;color:#041400}
-.merge-screen .btn-ghost:hover{border-color:#ff3c3c;color:#ff3c3c;background:rgba(255,60,60,.06)}
-
-/* the amber portal underneath turns green while the original melts through */
-body.merging{
-  --bg:#040404;--panel:#0a0a0a;--panel2:#0c0c0c;--line:#1b1b1b;--line-bright:#2a2a2a;
-  --amber:#00dc00;--amber-bright:#66ff66;--amber-soft:#b9ffb9;--amber-dim:#0a5c1d;
-  transition:background .9s ease,color .9s ease;
-}
+/* ---------------------------------------------------------------
+   Vault link (revealed after it notices you)
+   --------------------------------------------------------------- */
+.menu-link.vault-link{color:var(--red);border-color:rgba(255,60,60,.3)}
+.menu-link.vault-link:hover{color:#ff8080;background:rgba(255,60,60,.08)}
+.bulletin .bullet-line .ts{padding-right:.8rem}
 
 @media (prefers-reduced-motion:reduce){
-  .merge-screen.go .merge-band{transition:none;height:100%}
-  .merge-fringe,.merge-drip,.merge-marquee-track{animation:none !important}
+  .transit-q,.fb-row.denied{animation:none !important}
 }

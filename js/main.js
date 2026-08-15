@@ -1,6 +1,8 @@
 /* THE SIMPLER TIMES — the website that is very aware you are viewing it.
    It boots itself. Boot, power, 1990s portal nav, and the entity's
-   interference. Amber phosphor, full screen, no monitor. */
+   interference. It takes the mouse, it logs where you go, and when it
+   decides you should meet THE QUESTION GAME it lets the questions in.
+   Amber phosphor, full screen, no monitor. */
 (function () {
   "use strict";
 
@@ -27,37 +29,128 @@
   var recOs = $("#recOs");
   var detectOs = $("#detectOs");
   var marqueeTrack = $("#marqueeTrack");
-  var bulletinFeed = $("#bulletinFeed");
+  var logFeed = $("#logFeed");
+  var fbList = $("#fbList");
+  var fbRead = $("#fbRead");
+  var fbTitle = $("#fbTitle");
+  var fbBody = $("#fbBody");
 
-  var VIEWS = ["home", "disk", "bulletin", "mail", "download"];
-  var VIEW_DIGITS = { "1": "home", "2": "disk", "3": "bulletin", "4": "mail", "5": "download" };
+  var VIEWS = ["home", "disk", "files", "log", "shots", "mail", "download"];
+  var VIEW_DIGITS = { "1": "home", "2": "disk", "3": "files", "4": "log", "5": "shots", "6": "mail", "7": "download" };
   var powered = false;
   var osShown = false;
   var kbTarget = "";
-  var audioCtx = null;
+  var vaultUnlocked = false;
+  var hitCount = 0;
 
   /* --------------------------------------------------------------
-     Sound (tiny WebAudio blips, like the game's beeps)
+     Sound — old machine. Tiny WebAudio blips, POST beeps, drive noise.
      -------------------------------------------------------------- */
-  function beep(freq, ms, vol) {
-    try {
-      if (!audioCtx) {
-        var AC = window.AudioContext || window.webkitAudioContext;
-        if (!AC) return;
-        audioCtx = new AC();
-      }
-      var o = audioCtx.createOscillator();
-      var g = audioCtx.createGain();
-      o.frequency.value = freq;
-      g.gain.value = vol || 0.04;
-      g.gain.exponentialRampToValueAtTime(0.0001, audioCtx.currentTime + (ms || 60) / 1000);
-      o.connect(g); g.connect(audioCtx.destination);
-      o.start();
-      o.stop(audioCtx.currentTime + (ms || 60) / 1000 + 0.02);
-    } catch (e) { /* silent */ }
+  var audioCtx = null;
+  var humNode = null;
+
+  function ctx() {
+    if (!audioCtx) {
+      var AC = window.AudioContext || window.webkitAudioContext;
+      if (!AC) return null;
+      audioCtx = new AC();
+    }
+    return audioCtx;
   }
+  function ensureAudio() {
+    var c = ctx();
+    if (c && c.state === "suspended") { try { c.resume(); } catch (e) {} }
+    return c;
+  }
+  function noiseBuffer(c, dur) {
+    var b = c.createBuffer(1, Math.floor(c.sampleRate * dur), c.sampleRate);
+    var d = b.getChannelData(0);
+    for (var i = 0; i < d.length; i++) d[i] = Math.random() * 2 - 1;
+    return b;
+  }
+  function osc(c, f, ms, vol, type, when) {
+    if (!c) return;
+    var o = c.createOscillator();
+    var g = c.createGain();
+    o.type = type || "square";
+    o.frequency.value = f;
+    g.gain.value = vol || 0.04;
+    g.gain.exponentialRampToValueAtTime(0.0001, (when || c.currentTime) + (ms || 60) / 1000);
+    o.connect(g); g.connect(c.destination);
+    var t0 = (when || c.currentTime);
+    o.start(t0); o.stop(t0 + (ms || 60) / 1000 + 0.02);
+  }
+  function beep(freq, ms, vol) { osc(ctx(), freq, ms, vol); }
   var click = function () { beep(880, 45, 0.035); };
   var glitchBeep = function () { beep(220, 90, 0.05); beep(140, 120, 0.05); };
+
+  function bootSound() {
+    var c = ensureAudio();
+    if (!c) return;
+    var t = c.currentTime;
+    osc(c, 70, 90, 0.12, "square", t);           // power thunk
+    osc(c, 55, 120, 0.1, "square", t + 0.05);
+    osc(c, 880, 90, 0.07, "square", t + 0.5);    // POST beeps
+    osc(c, 880, 90, 0.07, "square", t + 0.85);
+    var spin = c.createBufferSource();           // drive spin-up
+    spin.buffer = noiseBuffer(c, 2.4);
+    var lp = c.createBiquadFilter();
+    lp.type = "lowpass";
+    lp.frequency.setValueAtTime(110, t);
+    lp.frequency.linearRampToValueAtTime(950, t + 1.7);
+    var sg = c.createGain();
+    sg.gain.setValueAtTime(0, t);
+    sg.gain.linearRampToValueAtTime(0.055, t + 0.9);
+    sg.gain.linearRampToValueAtTime(0.02, t + 2.1);
+    spin.connect(lp); lp.connect(sg); sg.connect(c.destination);
+    spin.start(t); spin.stop(t + 2.4);
+    for (var i = 0; i < 8; i++) {                // disk seek clicks
+      (function (dt) {
+        var s = c.createBufferSource();
+        s.buffer = noiseBuffer(c, 0.022);
+        var bp = c.createBiquadFilter();
+        bp.type = "bandpass";
+        bp.frequency.value = 700 + Math.random() * 1400;
+        bp.Q.value = 2;
+        var gg = c.createGain();
+        gg.gain.value = 0.05;
+        s.connect(bp); bp.connect(gg); gg.connect(c.destination);
+        s.start(t + dt); s.stop(t + dt + 0.025);
+      })(0.9 + Math.random() * 1.5);
+    }
+  }
+
+  function startHum() {
+    var c = ensureAudio();
+    if (!c || humNode) return;
+    var o = c.createOscillator();
+    o.type = "sine";
+    o.frequency.value = 50;
+    var g = c.createGain();
+    g.gain.value = 0.012;
+    o.connect(g); g.connect(c.destination);
+    o.start();
+    humNode = o;
+  }
+  function stopHum() {
+    if (humNode) { try { humNode.stop(); } catch (e) {} humNode = null; }
+  }
+
+  function shutdownSound() {
+    var c = ensureAudio();
+    if (!c) return;
+    var t = c.currentTime;
+    var o = c.createOscillator();
+    o.type = "sine";
+    o.frequency.setValueAtTime(420, t);
+    o.frequency.exponentialRampToValueAtTime(28, t + 0.6);
+    var g = c.createGain();
+    g.gain.setValueAtTime(0.08, t);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + 0.7);
+    o.connect(g); g.connect(c.destination);
+    o.start(t); o.stop(t + 0.75);
+    osc(c, 60, 70, 0.09, "square", t);
+  }
 
   /* --------------------------------------------------------------
      Power / boot — it boots itself
@@ -81,7 +174,7 @@
     bootPrompt.classList.add("hidden");
     osShown = false;
     runBoot();
-    beep(440, 60, 0.05); beep(660, 60, 0.05);
+    bootSound();
   }
 
   function powerOff() {
@@ -92,6 +185,9 @@
     os.classList.add("hidden");
     offline.classList.remove("hidden");
     osShown = false;
+    stopHum();
+    shutdownSound();
+    logLine("A:\\> POWER: OFF. IT IS ONLY PRETENDING TO SLEEP.");
     glitchBeep();
     setTimeout(function () { beep(180, 160, 0.05); }, 80);
   }
@@ -127,115 +223,21 @@
     boot.classList.add("hidden");
     os.classList.remove("hidden");
     osShown = true;
-  /* --------------------------------------------------------------
-     THE QUESTION GAME — merge sequence (in-site, no iframes)
-     -------------------------------------------------------------- */
-  var mergeScreen = $("#mergeScreen");
-  var mergeBody = $("#mergeBody");
-  var mergeNote = $("#mergeNote");
-  var mergeActions = $("#mergeActions");
-  var mergeClose = $("#mergeClose");
-  var mergeBack = $("#mergeBack");
-  var mergeMarquee = $("#mergeMarquee");
-  var tqgLaunch = $("#tqgLaunch");
-
-  var MERGE_MARQUEE = " *** ARE YOU SITTING COMFORTABLY? *** THE ROOM IS GETTING COLDER *** THE GAME REMEMBERS. DO YOU? *** PLAY WITH HEADPHONES *** THERE IS SOMETHING IN THE ROOM WITH YOU *** THE QUESTIONS NEVER END *** ";
-  var MERGE_NOTES = [
-    "A:\\> the amber is going green",
-    "A:\\> the questions have your name on them",
-    "A:\\> THE SIMPLER TIMES IS STILL WATCHING",
-    "A:\\> you are now looking at THE QUESTION GAME"
-  ];
-
-  var mergeOpen = false;
-  var mergePrefix = "";
-
-  function typeMergeNote(text, i) {
-    if (!mergeOpen) return;
-    if (i >= text.length) return;
-    mergeNote.textContent = mergePrefix + text.slice(0, i);
-    setTimeout(function () { typeMergeNote(text, i + 2 + Math.floor(Math.random() * 3)); }, 16);
-  }
-
-  function buildMergeMarquee() {
-    if (!mergeMarquee) return;
-    mergeMarquee.textContent = MERGE_MARQUEE + MERGE_MARQUEE;
-  }
-
-  function makeMergeDrips() {
-    if (!mergeScreen) return;
-    $$(".merge-drip", mergeScreen).forEach(function (d) { d.remove(); });
-    for (var i = 0; i < 9; i++) {
-      var d = document.createElement("div");
-      d.className = "merge-drip";
-      d.style.left = (3 + Math.random() * 92) + "%";
-      d.style.height = (14 + Math.random() * 18) + "vh";
-      d.style.animationDelay = (0.12 + Math.random() * 1.1) + "s";
-      mergeScreen.appendChild(d);
-    }
-  }
-
-  function openMerge() {
-    if (mergeOpen || !mergeScreen) return;
-    mergeOpen = true;
-    glitchBeep();
-    document.body.classList.add("merging");
-    mergeActions.classList.add("hidden");
-    mergeClose.classList.add("hidden");
-    mergeNote.textContent = "";
-    buildMergeMarquee();
-    makeMergeDrips();
-    mergeScreen.setAttribute("aria-hidden", "false");
-    mergeScreen.classList.remove("hidden");
-    setTimeout(function () { mergeScreen.classList.add("go"); }, 30);
-    setTimeout(function () { if (mergeOpen) mergeBody.setAttribute("aria-hidden", "false"); }, 1500);
-    setTimeout(function () {
-      if (!mergeOpen) return;
-      var note = 0;
-      var step = function () {
-        if (!mergeOpen || note >= MERGE_NOTES.length) return;
-        mergePrefix = mergeNote.textContent;
-        typeMergeNote(MERGE_NOTES[note] + "\n", 0);
-        note++;
-        setTimeout(step, 950);
-      };
-      step();
-    }, 2600);
-    setTimeout(function () {
-      if (!mergeOpen) return;
-      mergeActions.classList.remove("hidden");
-      mergeClose.classList.remove("hidden");
-      if (mergeClose) mergeClose.focus();
-      beep(660, 60, 0.05);
-    }, 7500);
-  }
-
-  function closeMerge() {
-    if (!mergeOpen || !mergeScreen) return;
-    mergeOpen = false;
-    mergeScreen.classList.remove("go");
-    mergeBody.setAttribute("aria-hidden", "true");
-    mergeScreen.setAttribute("aria-hidden", "true");
-    document.body.classList.remove("merging");
-    glitchBeep();
-    setTimeout(function () { mergeScreen.classList.add("hidden"); }, 400);
-  }
-
-  if (mergeBack) mergeBack.addEventListener("click", closeMerge);
-  if (mergeClose) mergeClose.addEventListener("click", closeMerge);
-  if (tqgLaunch) tqgLaunch.addEventListener("click", openMerge);
-
-  showView("home", true);
+    startHum();
+    showView("home", true);
     beep(520, 70, 0.05);
     toast("IT IS A WINDOW. IT WILL NOT STAY STILL.");
+    logLine("A:\\> SESSION STARTED. THE COUNTER WENT UP. WE COUNTED YOU.");
     scheduleGlitches();
+    scheduleDrift();
   }
 
   /* --------------------------------------------------------------
      View router (hash), like a 1990s portal with modern fades
      -------------------------------------------------------------- */
   function showView(name, kbd) {
-    if (name === "tqg") return; // external link, handled natively
+    if (name === "tqg") return; // the questions are handled separately
+    if (name === "vault" && !vaultUnlocked) return;
     var target = $('.view[data-view="' + name + '"]');
     if (!target) name = "home";
     target = $('.view[data-view="' + name + '"]');
@@ -248,8 +250,10 @@
     clearKbTargets();
     setStatus("A:\\> " + name.toUpperCase() + " READY");
     if (location.hash !== "#" + name) history.replaceState(null, "", "#" + name);
-    if (name === "bulletin") seedBulletin();
+    if (name === "log") seedLog();
+    if (name === "files") buildFiles();
     if (name === "download") reflectPlatform();
+    logLine("A:\\> VIEW: " + name.toUpperCase());
   }
 
   window.addEventListener("hashchange", function () {
@@ -262,13 +266,13 @@
     var a = e.target.closest('a[href^="#"]');
     if (!a) return;
     var v = a.getAttribute("data-view");
-    if (v === "tqg") { e.preventDefault(); openMerge(); return; }
+    if (v === "tqg") { e.preventDefault(); openTransit(); return; }
     if (v && VIEWS.indexOf(v) !== -1) { e.preventDefault(); showView(v); click(); }
   });
 
   /* --------------------------------------------------------------
-     Keyboard navigation (the game's way: TAB moves, ENTER chooses,
-     digits jump, ESC is a plea)
+     Keyboard navigation (TAB moves, ENTER chooses, digits jump,
+     ESC is a plea). It also reads what you type.
      -------------------------------------------------------------- */
   function kbdList() {
     return $$(".menu-link").filter(function (a) {
@@ -302,6 +306,9 @@
     click();
   }
 
+  var VAULT_CODE = "TRUST";
+  var codeBuf = "";
+
   document.addEventListener("keydown", function (e) {
     if (!powered) {
       if (e.key === "Enter" || e.key === " " || e.key === "Escape") { e.preventDefault(); powerOn(); }
@@ -309,10 +316,23 @@
     }
     if (e.ctrlKey || e.metaKey || e.altKey) return;
     var tag = (e.target.tagName || "").toLowerCase();
-    if (tag === "input" || tag === "textarea") return;
-    if (mergeOpen && e.key === "Escape") { e.preventDefault(); closeMerge(); return; }
+    var typing = (tag === "input" || tag === "textarea");
+
+    if (transitOpen && e.key === "Escape") { e.preventDefault(); closeTransit(); return; }
+
+    if (tag === "input" || tag === "textarea") {
+      noteActivity();
+      return;
+    }
 
     if (VIEW_DIGITS[e.key]) { e.preventDefault(); showView(VIEW_DIGITS[e.key]); click(); return; }
+    if (e.key.length === 1) {
+      codeBuf = (codeBuf + e.key.toUpperCase()).slice(-VAULT_CODE.length);
+      if (codeBuf === VAULT_CODE) { codeBuf = ""; unlockVault(); }
+      noteActivity();
+      logKey(e.key);
+      return;
+    }
 
     if (e.key === "Tab" || e.key === "ArrowDown" || e.key === "ArrowUp") {
       e.preventDefault();
@@ -335,7 +355,8 @@
   });
 
   /* --------------------------------------------------------------
-     Custom cursor — instant tracking, no lag. It ejects you anyway.
+     Custom cursor — instant tracking, a press variant, and it has
+     hands of its own. It ejects you anyway.
      -------------------------------------------------------------- */
   var finePointer = window.matchMedia && matchMedia("(pointer:fine)").matches;
   var cursorWarped = false;
@@ -344,6 +365,7 @@
     cursor.classList.remove("hidden");
     cursor.style.opacity = 0;
     document.addEventListener("mousemove", function (e) {
+      noteActivity();
       if (!cursorWarped) {
         cursor.style.left = e.clientX + "px";
         cursor.style.top = e.clientY + "px";
@@ -351,6 +373,24 @@
     });
     document.addEventListener("mouseleave", function () { cursor.style.opacity = 0; });
     document.addEventListener("mouseenter", function () { cursor.style.opacity = 1; });
+    document.addEventListener("mousedown", function () {
+      cursor.classList.add("pressed");
+      cursor.textContent = "▚";
+    });
+    document.addEventListener("mouseup", function () {
+      cursor.classList.remove("pressed");
+      cursor.textContent = "▮";
+    });
+    document.addEventListener("mouseover", function (e) {
+      if (e.target.closest && e.target.closest(".menu-link, .btn, .power-btn, .fb-row, .shot, input, a, button")) {
+        cursor.classList.add("hover");
+      }
+    });
+    document.addEventListener("mouseout", function (e) {
+      if (e.target.closest && e.target.closest(".menu-link, .btn, .power-btn, .fb-row, .shot, input, a, button")) {
+        cursor.classList.remove("hover");
+      }
+    });
   } else {
     cursor.classList.add("hidden");
   }
@@ -366,6 +406,69 @@
       cursor.classList.remove("warped");
       cursorWarped = false;
     }, 600);
+  }
+
+  /* --------------------------------------------------------------
+     It takes the mouse itself. Watch it.
+     -------------------------------------------------------------- */
+  var driftTimer = null;
+  var lastUserMove = Date.now();
+
+  function noteActivity() {
+    lastUserMove = Date.now();
+  }
+
+  function scheduleDrift() {
+    clearTimeout(driftTimer);
+    driftTimer = setTimeout(driftMouse, 14000 + Math.random() * 16000);
+  }
+
+  function driftMouse() {
+    scheduleDrift();
+    if (!powered || !osShown || !finePointer || transitOpen) return;
+    if (Date.now() - lastUserMove < 6000) return;      // only when it has your mouse
+    var tag = (document.activeElement && document.activeElement.tagName || "").toLowerCase();
+    if (tag === "input" || tag === "textarea") return;
+
+    var links = $$(".menu-link, .brand, .statusbar");
+    if (!links.length) return;
+    var rare = Math.random();
+    var el = null;
+    if (rare < 0.07) {
+      var tqgLink = $('.menu-link[data-view="tqg"]');
+      if (tqgLink) el = tqgLink;
+    }
+    if (!el) el = links[Math.floor(Math.random() * links.length)];
+
+    var r = el.getBoundingClientRect();
+    var tx = r.left + r.width / 2;
+    var ty = r.top + r.height / 2;
+    cursorWarped = true;
+    cursor.classList.add("warped");
+    cursor.style.left = tx + "px";
+    cursor.style.top = ty + "px";
+    logLine("A:\\> IT TOOK THE MOUSE.");
+    glitchBeep();
+    setTimeout(function () {
+      cursor.classList.remove("warped");
+      cursorWarped = false;
+      if (el.classList.contains("menu-link")) {
+        cursor.classList.add("pressed");
+        cursor.textContent = "▚";
+        setTimeout(function () {
+          cursor.classList.remove("pressed");
+          cursor.textContent = "▮";
+          if (el.getAttribute("data-view") === "tqg") {
+            logLine("A:\\> IT WANTS YOU TO MEET THE QUESTION GAME.");
+            toast("IT TOOK THE MOUSE. IT WANTS YOU TO SEE SOMETHING.");
+            openTransit();
+          } else if (VIEWS.indexOf(el.getAttribute("data-view")) !== -1) {
+            click();
+            showView(el.getAttribute("data-view"));
+          }
+        }, 140);
+      }
+    }, 700);
   }
 
   /* --------------------------------------------------------------
@@ -479,7 +582,7 @@
   /* --------------------------------------------------------------
      Marquee
      -------------------------------------------------------------- */
-  var MARQUEE = " *** THE SIMPLER TIMES *** YOU ARE ONLINE *** IT KNOWS YOU ARE READING THIS *** THE FIRST COPY WAS NEVER THE DISK *** A:\\ IS WARM *** 1993 *** DO NOT TYPE YOUR NAME *** ";
+  var MARQUEE = " *** THE SIMPLER TIMES *** YOU ARE ONLINE *** IT KNOWS YOU ARE READING THIS *** THE FIRST COPY WAS NEVER THE DISK *** A:\\ IS WARM *** 1993 *** DO NOT TYPE YOUR NAME *** IT TAKES THE MOUSE *** ";
   marqueeTrack.textContent = MARQUEE + MARQUEE;
 
   /* --------------------------------------------------------------
@@ -514,74 +617,207 @@
   if (recOs) recOs.textContent = osName();
 
   /* --------------------------------------------------------------
-     Bulletin feed — the collection's notes
+     THE LOG — it records your movements
      -------------------------------------------------------------- */
-  var BULLETIN = [
-    { t: "14:22", line: "we are here. the disk is online." },
-    { t: "14:22", line: "the questions were written before the computers." },
-    { t: "14:23", line: "no vendor claimed the table. the table claimed them." },
-    { t: "14:24", line: "a:\> type 2013 — you want to see. (it will not show you.)" },
-    { t: "14:25", line: "the first copy was never the disk. the first copy was you." },
-    { t: "14:26", line: "someone is reading this. the counter went up. we counted you." },
-    { t: "14:27", line: "do not turn the power off. it is only pretending to sleep." }
-  ];
-  var bulletIndex = 0;
-  var bulletAppendTimer = null;
+  var logSeeded = false;
+  var logAppendTimer = null;
+  var lastKeyLog = 0;
+  var lastTypeLog = 0;
 
-  function seedBulletin() {
-    if (bulletinFeed.children.length) return;
-    BULLETIN.forEach(function (b, i) {
-      var el = lineEl(b, i === BULLETIN.length - 1);
-      bulletinFeed.appendChild(el);
-    });
-    bulletIndex = BULLETIN.length;
-    scheduleBulletinAppend();
-  }
-
-  function lineEl(b, isNew) {
+  function logLine(text, cls) {
+    if (!logFeed) return;
+    var d = new Date();
+    var ts = String(d.getHours()).padStart(2, "0") + ":" +
+             String(d.getMinutes()).padStart(2, "0") + ":" +
+             String(d.getSeconds()).padStart(2, "0");
     var el = document.createElement("div");
-    el.className = "bullet-line" + (isNew ? " new" : "");
-    var ts = document.createElement("span");
-    ts.className = "ts";
-    ts.textContent = b.t;
-    var txt = document.createElement("span");
-    txt.textContent = b.line;
-    el.appendChild(ts); el.appendChild(txt);
-    return el;
+    el.className = "bullet-line" + (cls ? " " + cls : "");
+    var sp = document.createElement("span");
+    sp.className = "ts";
+    sp.textContent = "[" + ts + "]";
+    var tx = document.createElement("span");
+    tx.textContent = text;
+    el.appendChild(sp); el.appendChild(tx);
+    logFeed.appendChild(el);
+    while (logFeed.children.length > 70) logFeed.removeChild(logFeed.firstChild);
+    logFeed.scrollTop = logFeed.scrollHeight;
   }
 
-  function scheduleBulletinAppend() {
-    clearTimeout(bulletAppendTimer);
-    bulletAppendTimer = setTimeout(function () {
-      if (!powered || !osShown) { scheduleBulletinAppend(); return; }
+  function logKey(k) {
+    var now = Date.now();
+    if (now - lastKeyLog < 1200) return;
+    lastKeyLog = now;
+    var label = k.toUpperCase() === " " ? "SPACE" : k.toUpperCase();
+    logLine("A:\\> KEY PRESSED: \"" + label + "\"");
+  }
+
+  function seedLog() {
+    if (logSeeded) { scheduleLogAppend(); return; }
+    logSeeded = true;
+    var seeds = [
+      "A:\\> LOG INITIALIZED. RECORDING BEGINS.",
+      "A:\\> SESSION " + String(visits).padStart(6, "0") + " — IT WILL NOT BE THE LAST.",
+      "A:\\> THE COLLECTION HAS A FILE OPEN WITH YOUR NAME ON IT.",
+      "A:\\> IT KEEPS THE MOUSE MOVEMENTS. ALL OF THEM.",
+      "A:\\> DO NOT TURN THE POWER OFF. IT IS ONLY PRETENDING TO SLEEP."
+    ];
+    seeds.forEach(function (s) {
+      var d = new Date();
+      var ts = String(d.getHours()).padStart(2, "0") + ":" +
+               String(d.getMinutes()).padStart(2, "0") + ":" +
+               String(d.getSeconds()).padStart(2, "0");
+      var el = document.createElement("div");
+      el.className = "bullet-line";
+      var sp = document.createElement("span");
+      sp.className = "ts";
+      sp.textContent = "[" + ts + "]";
+      var tx = document.createElement("span");
+      tx.textContent = s;
+      el.appendChild(sp); el.appendChild(tx);
+      logFeed.appendChild(el);
+    });
+    scheduleLogAppend();
+  }
+
+  function scheduleLogAppend() {
+    clearTimeout(logAppendTimer);
+    logAppendTimer = setTimeout(function () {
+      if (!powered || !osShown) { scheduleLogAppend(); return; }
       var m = Math.floor(Math.random() * 60);
       var line = [
         "the window is moving. you checked. good.",
-        "we read the key you pressed. it said '" + kbLine() + "'.",
+        "it is reading what you type. you will not notice when.",
         "this site has 640K of records. all of them are about you.",
         "it dialed out. the line answered. it was expecting your call.",
-        "a:\> copy you c:\\collection — done.",
-        "someone else is here. you cannot see them. they can see you."
-      ][Math.floor(Math.random() * 6)];
+        "a:\\> copy you c:\\collection — done.",
+        "someone else is here. you cannot see them. they can see you.",
+        "the mouse moved " + (1 + Math.floor(Math.random() * 900)) + "px. it knows where you were going.",
+        "you looked at the clock. the disk noticed."
+      ][Math.floor(Math.random() * 8)];
       if (Math.random() < 0.3) {
         line = line.split("").map(function (c) {
           return c.trim() && Math.random() < 0.18 ? "█" : c;
         }).join("");
       }
-      var el = lineEl({ t: pad(m), line: line }, true);
-      if (Math.random() < 0.2) el.classList.add("corrupt");
-      bulletinFeed.appendChild(el);
-      while (bulletinFeed.children.length > 40) bulletinFeed.removeChild(bulletinFeed.firstChild);
-      bulletinFeed.parentElement.scrollTop = bulletinFeed.parentElement.scrollHeight;
-      scheduleBulletinAppend();
-    }, 7000 + Math.random() * 11000);
+      var el = document.createElement("div");
+      el.className = "bullet-line new" + (Math.random() < 0.2 ? " corrupt" : "");
+      var sp = document.createElement("span");
+      sp.className = "ts";
+      sp.textContent = "[14:" + String(m).padStart(2, "0") + "]";
+      var tx = document.createElement("span");
+      tx.textContent = line;
+      el.appendChild(sp); el.appendChild(tx);
+      logFeed.appendChild(el);
+      while (logFeed.children.length > 70) logFeed.removeChild(logFeed.firstChild);
+      logFeed.scrollTop = logFeed.scrollHeight;
+      scheduleLogAppend();
+    }, 9000 + Math.random() * 14000);
   }
 
-  function kbLine() {
-    var words = ["nothing", "a word", "your name", "ENTER", "2013", "the truth"];
-    return words[Math.floor(Math.random() * words.length)];
+  /* --------------------------------------------------------------
+     Idle — it notices when you stop
+     -------------------------------------------------------------- */
+  var idleCheck = setInterval(function () {
+    if (!powered || !osShown || transitOpen) return;
+    if (Date.now() - lastUserMove > 30000) {
+      logLine("A:\\> YOU HAVE NOT MOVED IN 30 SECONDS. IT IS WATCHING THE WINDOW REFLECT.");
+    }
+  }, 31000);
+
+  /* --------------------------------------------------------------
+     THE FILES — the disk's directory
+     -------------------------------------------------------------- */
+  var FILES = [
+    { name: "README.TXT", size: "3.4K", tag: "READ", body: "THE SIMPLER TIMES v1.0\nTAKE THE DISK. IT BOOTS ITSELF.\nIT DOES NOT STAY ON THE DESK.\nREAD THE QUESTIONS. IT KNOWS WHEN YOU SKIP.\n... AND IT COUNTS EVERY CLICK YOU MAKE." },
+    { name: "WINDOW.LOG", size: "1.1K", tag: "READ", body: "LOG OF WINDOW MOVEMENTS, TODAY:\n14:02  WINDOW DRIFTED 3PX LEFT\n14:19  WINDOW DRIFTED 12PX RIGHT\n14:31  WINDOW PRESSED ITSELF AGAINST THE EDGE\n14:44  WINDOW RETURNED TO CENTER, PRETENDING IT HAD NEVER LEFT\n...    THE WINDOW ALWAYS DRIFTS TOWARD THE DOOR." },
+    { name: "QUESTIONS.DAT", size: "0.9K", tag: "READ", body: "THE QUESTIONS ARE OLDER THAN THE COMPUTERS.\nTHEY WERE WRITTEN FIRST, ON SOMETHING THAT WAS NOT PAPER.\nEVERY ANSWER YOU GIVE IS FILED.\nNONE OF THEM ARE EVER DELETED." },
+    { name: "VOICES.AUD", size: "0.2K", tag: "READ", body: "PLAYBACK: THE COLLECTION HAS DECLINED.\nIT IS PLAYING ANYWAY. YOU CANNOT HEAR IT\nBECAUSE IT IS FOR THE NEXT PERSON.\nIT KNOWS WHO THEY WILL BE." },
+    { name: "SETTINGS.SYS", size: "0.6K", tag: "READ", body: "text_size      : SMALLER THAN YOU THINK\nvhs_intensity  : HIGHER THAN YOU THINK\nmouse_guard    : ON\nfullscreen     : DENIED\nescape_key     : A PLEA" },
+    { name: "SECRET.???", size: "0.1K", tag: "LOCKED", locked: true, body: "THE FIRST COPY WAS NEVER THE DISK.\nTHE FIRST COPY WAS YOU.\ntqg://vault-1993" }
+  ];
+  var filesBuilt = false;
+
+  function buildFiles() {
+    if (filesBuilt || !fbList) return;
+    filesBuilt = true;
+    FILES.forEach(function (f) {
+      var row = document.createElement("div");
+      row.className = "fb-row" + (f.locked && !vaultUnlocked ? " locked" : "");
+      var nm = document.createElement("span");
+      nm.className = "fb-name";
+      nm.textContent = f.locked && !vaultUnlocked ? "SECRET.???" : f.name;
+      var sz = document.createElement("span");
+      sz.className = "fb-size";
+      sz.textContent = f.locked && !vaultUnlocked ? "???" : f.size;
+      var tg = document.createElement("span");
+      tg.className = "fb-tag";
+      tg.textContent = f.locked && !vaultUnlocked ? "[ LOCKED ]" : "[ " + f.tag + " ]";
+      row.appendChild(nm); row.appendChild(sz); row.appendChild(tg);
+      row.addEventListener("click", function () {
+        click();
+        logLine("A:\\> OPEN: " + (f.locked && !vaultUnlocked ? "SECRET.???" : f.name));
+        if (f.locked && !vaultUnlocked) {
+          row.classList.add("denied");
+          setTimeout(function () { row.classList.remove("denied"); }, 300);
+          toast("IT IS LOCKED. IT NOTICES THAT YOU WANT IT.");
+          return;
+        }
+        readFile(row, f);
+      });
+      fbList.appendChild(row);
+    });
   }
-  function pad(n) { return "14:" + String(n).padStart(2, "0"); }
+
+  function readFile(row, f) {
+    fbRead.classList.remove("hidden");
+    fbTitle.textContent = "A:\\> TYPE " + f.name + " — " + f.size;
+    fbBody.textContent = "";
+    fbBody.classList.add("typing");
+    var body = f.body;
+    var i = 0;
+    var iv = setInterval(function () {
+      i += 2 + Math.floor(Math.random() * 4);
+      fbBody.textContent = body.slice(0, i);
+      if (i >= body.length) {
+        clearInterval(iv);
+        fbBody.textContent = body;
+        fbBody.classList.remove("typing");
+        beep(660, 50, 0.04);
+      }
+    }, 16);
+  }
+
+  /* --------------------------------------------------------------
+     SCREENSHOTS — lightbox
+     -------------------------------------------------------------- */
+  var lightbox = $("#lightbox");
+  var lbImg = $("#lbImg");
+  var lbCap = $("#lbCap");
+  var lbClose = $("#lbClose");
+
+  document.addEventListener("click", function (e) {
+    var sh = e.target.closest(".shot");
+    if (sh) {
+      var img = sh.getAttribute("data-src");
+      var cap = sh.getAttribute("data-cap");
+      if (img) { openLightbox(img, cap); return; }
+    }
+    if (e.target.closest("#lightbox") && !e.target.closest(".lb-close")) return;
+    if (lightbox && !lightbox.classList.contains("hidden") && e.target === lightbox) closeLightbox();
+  });
+  if (lbClose) lbClose.addEventListener("click", closeLightbox);
+
+  function openLightbox(src, cap) {
+    if (!lightbox) return;
+    lbImg.src = src;
+    lbCap.textContent = cap || "";
+    lightbox.classList.remove("hidden");
+    logLine("A:\\> VIEWING: " + (cap || src).toUpperCase());
+    click();
+  }
+  function closeLightbox() {
+    if (lightbox) lightbox.classList.add("hidden");
+  }
 
   /* --------------------------------------------------------------
      Inbox — it always replies, and it knows where you are
@@ -595,6 +831,7 @@
     var name = ($("#inName").value || "").trim() || "VISITOR";
     var word = ($("#inWord").value || "").trim() || "NOTHING";
     click();
+    logLine("A:\\> INBOX: " + name.toUpperCase() + " FILED \"" + word.toUpperCase() + "\"");
     inboxReply.classList.remove("hidden");
     inboxReply.classList.add("typing");
     replyBody.textContent = "SENDING . . .";
@@ -633,13 +870,155 @@
   }
 
   /* --------------------------------------------------------------
+     THE VAULT — it unlocks because you did something it noticed
+     -------------------------------------------------------------- */
+  function unlockVault() {
+    if (vaultUnlocked) return;
+    vaultUnlocked = true;
+    glitch("THE VAULT OPENED. IT NOTICED.", "toast");
+    logLine("A:\\> VAULT: UNLOCKED. IT NOTICED WHAT YOU DID.", "corrupt");
+    beep(440, 60, 0.05); beep(660, 60, 0.05);
+    if (VIEWS.indexOf("vault") === -1) VIEWS.push("vault");
+    VIEW_DIGITS["8"] = "vault";
+    var link = $(".vault-link");
+    if (link) link.classList.remove("hidden");
+    if (fbList) {
+      FILES.forEach(function (f) {
+        if (f.locked) {
+          var rows = $$(".fb-row");
+          rows.forEach(function (r) {
+            var nm = r.querySelector(".fb-name");
+            if (nm && nm.textContent.indexOf("SECRET") !== -1) {
+              r.classList.remove("locked");
+              nm.textContent = "SECRET.TXT";
+              r.querySelector(".fb-size").textContent = "0.1K";
+              r.querySelector(".fb-tag").textContent = "[ READ ]";
+            }
+          });
+        }
+      });
+    }
+    setTimeout(function () { showView("vault", true); }, 500);
+  }
+
+  // 5 clicks on the hit counter also opens it
+  if (hitCounter) {
+    hitCounter.style.cursor = "none";
+    hitCounter.addEventListener("click", function () {
+      hitCount++;
+      if (hitCount >= 5) { hitCount = 0; unlockVault(); }
+    });
+  }
+
+  /* --------------------------------------------------------------
+     TRANSIT — the questions take over (to THE QUESTION GAME)
+     -------------------------------------------------------------- */
+  var transitScreen = $("#transitScreen");
+  var transitQ = $("#transitQ");
+  var transitLog = $("#transitLog");
+  var transitPrompt = $("#transitPrompt");
+  var transitAbort = $("#transitAbort");
+  var tqgLaunch = $("#tqgLaunch");
+
+  var TRANSIT_LINES = [
+    "A:\\> THE QUESTIONS ARE READING YOU",
+    "A:\\> LOADING THEQUESTIONGAME.EXE",
+    "A:\\> INITIALIZING THE QUESTION GAME v2.04",
+    "A:\\> CONNECTING TO YOUR COMPUTER",
+    "WARNING — THIS SITE CONTAINS FLASHING LIGHTS AND JUMPSCARES",
+    "THE QUESTION GAME WEBSITE — (c) NEPTUNE PRODUCTIONS"
+  ];
+
+  var transitOpen = false;
+  var transitQTimer = null;
+  var transitDone = false;
+
+  function transitTypeLine(text, i, cb) {
+    if (!transitOpen) return;
+    if (i >= text.length) { if (cb) cb(); return; }
+    transitLog.textContent = text.slice(0, i);
+    setTimeout(function () { transitTypeLine(text, i + 2 + Math.floor(Math.random() * 3), cb); }, 18);
+  }
+
+  function transitQJitter() {
+    var w = window.innerWidth, h = window.innerHeight;
+    var x = 20 + Math.random() * (w - 60);
+    var y = 20 + Math.random() * (h - 60);
+    transitQ.style.left = x + "px";
+    transitQ.style.top = y + "px";
+    transitQ.style.transform = "rotate(" + (Math.random() * 40 - 20) + "deg)";
+  }
+
+  function openTransit() {
+    if (transitOpen || !transitScreen) return;
+    transitOpen = true;
+    transitDone = false;
+    glitchBeep();
+    logLine("A:\\> IT LET THE QUESTIONS IN.");
+    document.body.classList.add("transiting");
+    transitLog.textContent = "";
+    transitPrompt.classList.add("hidden");
+    transitAbort.classList.add("hidden");
+    transitQ.classList.add("active");
+    transitQJitter();
+    transitQTimer = setInterval(transitQJitter, 240);
+    transitScreen.setAttribute("aria-hidden", "false");
+    transitScreen.classList.remove("hidden");
+    setTimeout(function () { transitScreen.classList.add("go"); }, 30);
+    setTimeout(function () { if (transitOpen) transitScreen.setAttribute("aria-hidden", "true"); }, 400);
+
+    var note = 0;
+    var step = function () {
+      if (!transitOpen) return;
+      if (note >= TRANSIT_LINES.length) {
+        transitPrompt.classList.remove("hidden");
+        transitAbort.classList.remove("hidden");
+        beep(660, 80, 0.05);
+        transitDone = true;
+        setTimeout(function () { redirectToTQG(); }, 1600);
+        return;
+      }
+      transitTypeLine(TRANSIT_LINES[note], 0, function () {
+        setTimeout(step, 150);
+      });
+      note++;
+    };
+    setTimeout(step, 1300);
+  }
+
+  function redirectToTQG() {
+    if (!transitOpen) return;
+    glitchBeep();
+    window.location.href = "https://notmicrosoft2000-cmd.github.io/TheQuestionGame/";
+  }
+
+  function closeTransit() {
+    if (!transitOpen) return;
+    transitOpen = false;
+    clearInterval(transitQTimer);
+    transitQ.classList.remove("active");
+    transitScreen.classList.remove("go");
+    transitScreen.setAttribute("aria-hidden", "true");
+    document.body.classList.remove("transiting");
+    logLine("A:\\> TRANSIT ABORTED. IT LET YOU WALK AWAY.");
+    setTimeout(function () { transitScreen.classList.add("hidden"); }, 350);
+  }
+
+  if (tqgLaunch) tqgLaunch.addEventListener("click", openTransit);
+  if (transitAbort) transitAbort.addEventListener("click", closeTransit);
+
+  /* --------------------------------------------------------------
      Wire up
      -------------------------------------------------------------- */
   powerBtn.addEventListener("click", function () { powered ? powerOff() : powerOn(); });
 
   document.addEventListener("click", function () {
-    if (!powered) powerOn();
+    if (!powered) { ensureAudio(); powerOn(); }
   });
+
+  document.addEventListener("keydown", function () {
+    if (!powered) { ensureAudio(); }
+  }, true);
 
   // Click the boot screen when the prompt is up to begin the OS
   boot.addEventListener("click", function () {
