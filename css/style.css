@@ -717,3 +717,7 @@ body.exploding{filter:brightness(2.1) saturate(0);transition:filter .1s steps(2)
   .explode-flash{display:none}
   body.exploding{filter:none}
 }
+
+/* neptune productions imprint → hub link */
+.nep-link{color:inherit;text-decoration:none;cursor:pointer}
+.nep-link:hover{text-decoration:underline}
