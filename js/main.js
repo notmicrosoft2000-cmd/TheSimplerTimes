@@ -153,93 +153,123 @@
 
   /* --------------------------------------------------------------
      Ambience — the room the site is in. Always on once it has heard
-     you interact (browsers demand a gesture first). A low hum, a
-     slow room tone, and the occasional soft static pop.
+     you interact (browsers demand a gesture first).
+
+     Retuned after the "random loud wind" report. What was wrong:
+     a bandpass at 240Hz with Q 0.7 is not room tone, it is wind —
+     the ear hears exactly what it is. On top of that every layer ran
+     straight into c.destination through a master gain of 1.0, so
+     hum + room + wind + gusts + pops stacked to roughly -20 dBFS of
+     broadband noise. Loud, muddy, unpredictable.
+
+     Now: one master fader, a limiter after it so nothing can ever
+     spike, no low-frequency wind at all, and the whole bed sits
+     near -40 dBFS. What is left is the 46Hz transformer hum, a very
+     dark room rumble, a whisper of high air, and rare soft static.
+     AMBIENCE <0-100> in the console lets you set your own level.
      -------------------------------------------------------------- */
   var ambienceOn = true;
   var amb = null;
+  var AMB_DEFAULT = 0.30;          // the whole bed, master fader, 0..1
+  var ambVol = AMB_DEFAULT;
+  try {
+    var sv = parseFloat(localStorage.getItem("tqg-st-ambvol") || "");
+    if (!isNaN(sv)) ambVol = Math.max(0, Math.min(1, sv / 100));
+  } catch (e) {}
 
   function startAmbience() {
     if (!ambienceOn || amb) return;
     var c = ensureAudio();
     if (!c) return;
     var t = c.currentTime;
+
+    // master fader
     var master = c.createGain();
     master.gain.value = 0;
-    master.gain.linearRampToValueAtTime(1, t + 2.5);
+    master.gain.linearRampToValueAtTime(ambVol, t + 2.5);
 
+    // limiter — the bed can never spike, whatever the layers do
+    var lim = c.createDynamicsCompressor();
+    lim.threshold.value = -14;
+    lim.knee.value = 6;
+    lim.ratio.value = 12;
+    lim.attack.value = 0.004;
+    lim.release.value = 0.18;
+    master.connect(lim);
+    lim.connect(c.destination);
+
+    // 1. the transformer hum — 46Hz, barely-there, gently breathing
     var hum = c.createOscillator();
     hum.type = "sine";
     hum.frequency.value = 46;
     var hg = c.createGain();
-    hg.gain.value = 0.016;
+    hg.gain.value = 0.020;
     var lfo = c.createOscillator();
-    lfo.frequency.value = 0.31;
+    lfo.frequency.value = 0.21;
     var lg = c.createGain();
-    lg.gain.value = 0.005;
+    lg.gain.value = 0.004;
     lfo.connect(lg); lg.connect(hg.gain);
     hum.connect(hg); hg.connect(master);
     hum.start(); lfo.start();
 
-    var nb = noiseBuffer(c, 3);
+    // 2. room rumble — very dark, so it reads as a room and not as wind
     var room = c.createBufferSource();
-    room.buffer = nb; room.loop = true;
+    room.buffer = noiseBuffer(c, 6); room.loop = true;
+    var rHp = c.createBiquadFilter();
+    rHp.type = "highpass"; rHp.frequency.value = 45; rHp.Q.value = 0.5;
     var lp = c.createBiquadFilter();
-    lp.type = "lowpass";
-    lp.frequency.value = 260;
-    lp.Q.value = 0.6;
+    lp.type = "lowpass"; lp.frequency.value = 150; lp.Q.value = 0.4;
     var ng = c.createGain();
-    ng.gain.value = 0.05;
-    room.connect(lp); lp.connect(ng); ng.connect(master);
+    ng.gain.value = 0.055;
+    room.connect(rHp); rHp.connect(lp); lp.connect(ng); ng.connect(master);
     room.start();
 
-    // wind — a low wind that slowly swells and fades, with gusts
-    var wnoise = c.createBufferSource();
-    wnoise.buffer = noiseBuffer(c, 8);
-    wnoise.loop = true;
-    var wlp = c.createBiquadFilter();
-    wlp.type = "bandpass";
-    wlp.frequency.value = 240;
-    wlp.Q.value = 0.7;
-    var wg = c.createGain();
-    wg.gain.value = 0.022;
-    var wflfo = c.createOscillator();
-    wflfo.frequency.value = 0.09;
-    var wfg = c.createGain();
-    wfg.gain.value = 90;
-    wflfo.connect(wfg); wfg.connect(wlp.frequency);
-    wnoise.connect(wlp); wlp.connect(wg); wg.connect(master);
-    wnoise.start(); wflfo.start();
+    // 3. air — high, thin, almost subliminal. This is what a room
+    //    actually sounds like. It is NOT the old wind layer.
+    var air = c.createBufferSource();
+    air.buffer = noiseBuffer(c, 11); air.loop = true;
+    var aHp = c.createBiquadFilter();
+    aHp.type = "highpass"; aHp.frequency.value = 1900; aHp.Q.value = 0.4;
+    var aLp = c.createBiquadFilter();
+    aLp.type = "lowpass"; aLp.frequency.value = 5200; aLp.Q.value = 0.3;
+    var ag = c.createGain();
+    ag.gain.value = 0.010;
+    air.connect(aHp); aHp.connect(aLp); aLp.connect(ag); ag.connect(master);
+    air.start();
+
+    // 4. drafts — rare, shallow, and never louder than the air itself.
+    //    They swell to at most 2x base instead of 3x.
     var gustTimer = setInterval(function () {
-      if (!ambienceOn) return;
+      if (!ambienceOn || document.hidden) return;
       var c2 = ensureAudio();
       if (!c2) return;
-      var t = c2.currentTime;
+      var t2 = c2.currentTime;
       try {
-        wg.gain.cancelScheduledValues(t);
-        wg.gain.setValueAtTime(wg.gain.value, t);
-        wg.gain.linearRampToValueAtTime(0.04 + Math.random() * 0.025, t + 1.3);
-        wg.gain.linearRampToValueAtTime(0.022, t + 4.2 + Math.random() * 3.2);
+        ag.gain.cancelScheduledValues(t2);
+        ag.gain.setValueAtTime(ag.gain.value, t2);
+        ag.gain.linearRampToValueAtTime(0.010 + Math.random() * 0.009, t2 + 1.6);
+        ag.gain.linearRampToValueAtTime(0.010, t2 + 5.5 + Math.random() * 4);
       } catch (e) { }
-    }, 8200);
+    }, 15000);
 
+    // 5. soft static pops — one every ~10s at most, well under the bed
     var pops = setInterval(function () {
-      if (!ambienceOn) return;
+      if (!ambienceOn || document.hidden) return;
       var c2 = ensureAudio();
-      if (!c2 || Math.random() > 0.55) return;
+      if (!c2 || Math.random() > 0.32) return;
       var s = c2.createBufferSource();
-      s.buffer = noiseBuffer(c2, 0.045);
+      s.buffer = noiseBuffer(c2, 0.04);
       var bp = c2.createBiquadFilter();
       bp.type = "bandpass";
-      bp.frequency.value = 500 + Math.random() * 1900;
-      bp.Q.value = 1.4;
+      bp.frequency.value = 900 + Math.random() * 2400;
+      bp.Q.value = 1.6;
       var gg = c2.createGain();
-      gg.gain.value = 0.012 + Math.random() * 0.01;
+      gg.gain.value = 0.006 + Math.random() * 0.005;
       s.connect(bp); bp.connect(gg); gg.connect(master);
       s.start();
-    }, 4200);
+    }, 11000);
 
-    amb = { master: master, pops: pops, gustTimer: gustTimer, room: room, hum: hum, lfo: lfo, wind: wnoise, wflfo: wflfo };
+    amb = { master: master, pops: pops, gustTimer: gustTimer, room: room, hum: hum, lfo: lfo, air: air, airGain: ag };
   }
 
   function stopAmbience() {
@@ -252,9 +282,25 @@
     clearInterval(amb.pops);
     clearInterval(amb.gustTimer);
     setTimeout(function () {
-      try { amb.room.stop(); amb.hum.stop(); amb.lfo.stop(); amb.wind.stop(); amb.wflfo.stop(); } catch (e) {}
+      try { amb.room.stop(); amb.hum.stop(); amb.lfo.stop(); amb.air.stop(); } catch (e) {}
     }, 1300);
     amb = null;
+  }
+
+  function setAmbienceVolume(v) {
+    var pct = Math.max(0, Math.min(100, Math.round(v)));
+    ambVol = pct / 100;
+    try { localStorage.setItem("tqg-st-ambvol", String(pct)); } catch (e) {}
+    var c = ensureAudio();
+    if (c && amb) {
+      var t = c.currentTime;
+      try {
+        amb.master.gain.cancelScheduledValues(t);
+        amb.master.gain.setValueAtTime(amb.master.gain.value, t);
+        amb.master.gain.linearRampToValueAtTime(ambVol, t + 0.35);
+      } catch (e) {}
+    }
+    return pct;
   }
 
   function toggleAmbience(on) {
@@ -264,6 +310,7 @@
     if (tag) {
       tag.classList.toggle("on", ambienceOn);
       tag.classList.toggle("off", !ambienceOn);
+      tag.title = "AMBIENCE " + Math.round(ambVol * 100) + "% — TYPE AMBIENCE <0-100> TO SET";
     }
     var ambIcon = $("#ambIcon");
     if (ambIcon) ambIcon.classList.toggle("playing", ambienceOn);
@@ -418,6 +465,8 @@
     if (name === "log") seedLog();
     if (name === "files") buildFiles();
     if (name === "download") reflectPlatform();
+    armReveals();
+    crtRoll();
     logLine("A:\\> VIEW: " + name.toUpperCase());
   }
 
@@ -554,17 +603,14 @@
       cursor.classList.remove("pressed");
       cursor.textContent = "▮";
     });
+    // Hover GROWS the reticle into a ring. It never hides, and the native
+    // cursor is suppressed everywhere by body.custom-cursor *{cursor:none}.
+    var HOVER_SEL = ".menu-link, .btn, .power-btn, .fb-row, .shot, .console-btn, .ambience-status, .fx-tag, input, a, button, .t-entry, .dos-head, .platform-card, .nep-link, .lb-close";
     document.addEventListener("mouseover", function (e) {
-      if (e.target.closest && e.target.closest(".menu-link, .btn, .power-btn, .fb-row, .shot, .console-btn, .ambience-status, input, a, button, .t-entry")) {
-        cursor.classList.add("hover");
-        cursor.classList.add("hide");
-      }
+      if (e.target.closest && e.target.closest(HOVER_SEL)) cursor.classList.add("hover");
     });
     document.addEventListener("mouseout", function (e) {
-      if (e.target.closest && e.target.closest(".menu-link, .btn, .power-btn, .fb-row, .shot, .console-btn, .ambience-status, input, a, button, .t-entry")) {
-        cursor.classList.remove("hover");
-        cursor.classList.remove("hide");
-      }
+      if (e.target.closest && e.target.closest(HOVER_SEL)) cursor.classList.remove("hover");
     });
   } else {
     cursor.classList.add("hidden");
@@ -1377,7 +1423,8 @@
         "  TYPE <F>    READ A FILE (E.G. TYPE README.TXT)\n" +
         "  VIEW <N>    GO TO A PAGE (HOME, DISK, ARCHIVE, FILES, LOG, SHOTS, MAIL, DOWNLOAD)\n" +
         "  COLOR <N>   AMBER, GREEN, RED, BLUE, MONO\n" +
-        "  AMBIENCE    SOUND ON / OFF\n" +
+        "  AMBIENCE    SOUND ON / OFF. AMBIENCE <0-100> SETS THE LEVEL.\n" +
+        "  CRT         DROP OR RESTORE THE SCANLINES, GRAIN AND ASH\n" +
         "  POWER       POWER ON / OFF\n" +
         "  BOOT        COLD BOOT. AGAIN.\n" +
         "  TQG         LET THE QUESTIONS IN.\n" +
@@ -1476,17 +1523,37 @@
       setTimeout(function () { dosCloseIt(); powerOn(); }, 800);
       return;
     }
-    if (cmd === "ambience" || cmd === "sound") {
+    if (cmd === "ambience" || cmd === "sound" || cmd === "volume" || cmd === "vol") {
       dosPrint(echo, "dos-ok");
-      if (/off|mute/.test(rest)) {
+      var numArg = rest.match(/(\d{1,3})/);
+      if (numArg) {
+        var pctArg = setAmbienceVolume(parseInt(numArg[1], 10));
+        if (!ambienceOn && pctArg > 0) toggleAmbience(true);
+        dosType(pctArg === 0
+          ? "AMBIENCE: 0%.\nSILENCE. THE ROOM KEEPS ITS OWN COUNSEL."
+          : "AMBIENCE: " + pctArg + "%.\nTHE ROOM RESPONDS. QUIETER NOW.", "dos-in");
+      } else if (/off|mute/.test(rest)) {
         toggleAmbience(false);
         dosType("AMBIENCE: OFF.\nTHE ROOM IS QUIETER. IT IS LISTENING HARDER.", "dos-in");
       } else if (/on|play/.test(rest)) {
         toggleAmbience(true);
-        dosType("AMBIENCE: ON. THE ROOM IS BACK.", "dos-in");
+        dosType("AMBIENCE: ON AT " + Math.round(ambVol * 100) + "%.", "dos-in");
       } else {
         toggleAmbience();
-        dosType("AMBIENCE: " + (ambienceOn ? "ON" : "OFF") + ".", "dos-in");
+        dosType("AMBIENCE: " + (ambienceOn ? "ON" : "OFF") + " \u00b7 VOLUME " +
+          Math.round(ambVol * 100) + "%.\nTYPE AMBIENCE <0-100> TO SET IT.", "dos-in");
+      }
+      return;
+    }
+    if (cmd === "crt" || cmd === "static" || cmd === "fx") {
+      dosPrint(echo, "dos-ok");
+      if (/off|drop|stop/.test(rest)) setCrt(false, true);
+      else if (/on|restore/.test(rest)) setCrt(true, true);
+      else setCrt(!crtOn, true);
+      if (!crtOn) {
+        dosType("CRT LAYER: OFF.\nTHE TUBE GOES DARK. THE MACHINES STOP BREATHING.\nSCANLINES, GRAIN AND ASH: STOPPED.", "dos-in");
+      } else {
+        dosType("CRT LAYER: ON.\nIT IS A SCREEN AGAIN. LOOK AT IT.", "dos-in");
       }
       return;
     }
@@ -1625,6 +1692,213 @@
     if (powered && !osShown && !bootPrompt.classList.contains("hidden")) enterOS();
   });
 
+  /* --------------------------------------------------------------
+     CRT / STATIC LAYER
+     Amber phosphor, not green: scanlines, a breathing vignette, film
+     grain, drifting ash, a slow beam and a rarer sweep. Two canvases
+     at reduced resolution, ash capped at ~30fps, both loops stopped
+     when the tab is hidden.
+
+     CRT in the status bar (or the CRT command) drops the whole stack
+     AND stops the frame loops — that is the saving, not just opacity.
+     -------------------------------------------------------------- */
+  var motionOk = !(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches);
+  var memLow = !!(navigator.deviceMemory && navigator.deviceMemory <= 4);
+  var smallScreen = window.innerWidth < 720;
+  var PERF = {
+    grainRes: smallScreen ? 3 : 2,
+    grainMs: 1000 / 13,
+    ashRes: 2,
+    ashCount: memLow || smallScreen ? 22 : 48
+  };
+
+  var crt = $("#crt");
+  var grainCnv = $("#crtGrain");
+  var ashCnv = $("#crtAsh");
+  var grainCtx = null, ashCtx = null, grainImg = null;
+  var ashParticles = [];
+  var grainTimer = null, grainTick = 0;
+  var ashRaf = null, ashLast = 0, ashWant = false;
+  var crtOn = true;
+  try { crtOn = localStorage.getItem("tqg-st-crt") !== "off"; } catch (e) {}
+
+  function fxLive() { return crtOn && motionOk && !document.hidden; }
+
+  function sizeGrain() {
+    if (!grainCnv) return;
+    grainCnv.width = Math.max(8, Math.floor(window.innerWidth / PERF.grainRes));
+    grainCnv.height = Math.max(8, Math.floor(window.innerHeight / PERF.grainRes));
+    grainImg = null;
+  }
+  function frameGrain(burst) {
+    if (!grainCtx) return;
+    grainTick++;
+    var w = grainCnv.width, h = grainCnv.height;
+    if (!grainImg || grainImg.width !== w || grainImg.height !== h) grainImg = grainCtx.createImageData(w, h);
+    var d = grainImg.data;
+    var a = burst ? 44 : 15;
+    for (var i = 0; i < d.length; i += 4) {
+      var v = (Math.random() * 255) | 0;
+      d[i] = v; d[i + 1] = (v * 0.74) | 0; d[i + 2] = (v * 0.38) | 0; d[i + 3] = a;
+    }
+    grainCtx.putImageData(grainImg, 0, 0);
+    if (!burst && grainTick % 7 === 0) {
+      // a tracking bar drifts across the tube now and then
+      grainCtx.fillStyle = "rgba(255,176,32," + (0.025 + Math.random() * 0.045).toFixed(3) + ")";
+      grainCtx.fillRect(0, Math.random() * h, w, 1 + Math.random() * 5);
+    }
+  }
+  function sizeAsh() {
+    if (!ashCnv) return;
+    ashCnv.width = Math.max(8, Math.floor(window.innerWidth / PERF.ashRes));
+    ashCnv.height = Math.max(8, Math.floor(window.innerHeight / PERF.ashRes));
+    var w = ashCnv.width, h = ashCnv.height;
+    ashParticles = [];
+    for (var i = 0; i < PERF.ashCount; i++) {
+      ashParticles.push({
+        x: Math.random() * w, y: Math.random() * h,
+        vx: (Math.random() - 0.5) * 0.26,
+        vy: -0.12 - Math.random() * 0.26,
+        size: Math.random() < 0.62 ? 1 : (Math.random() < 0.5 ? 1.5 : 2),
+        phase: Math.random() * 6.283,
+        b: 24 + Math.random() * 56,
+        red: Math.random() < 0.12
+      });
+    }
+  }
+  function frameAsh(t) {
+    if (!ashCtx) return;
+    var w = ashCnv.width, h = ashCnv.height;
+    ashCtx.clearRect(0, 0, w, h);
+    var s = t / 1000;
+    for (var i = 0; i < ashParticles.length; i++) {
+      var p = ashParticles[i];
+      p.x += p.vx; p.y += p.vy;
+      if (p.y < -4) { p.y = h + 4; p.x = Math.random() * w; }
+      if (p.x < -4) p.x = w + 4;
+      if (p.x > w + 4) p.x = -4;
+      var tw = 0.5 + 0.5 * Math.sin(s * 1.9 + p.phase);
+      var b = Math.max(5, Math.min(180, p.b * (0.45 + 0.55 * tw))) | 0;
+      ashCtx.fillStyle = p.red
+        ? "rgb(" + b + "," + ((b * 0.24) | 0) + "," + ((b * 0.24) | 0) + ")"
+        : "rgb(" + b + "," + ((b * 0.69) | 0) + "," + ((b * 0.13) | 0) + ")";
+      ashCtx.fillRect(p.x, p.y, p.size, p.size);
+    }
+  }
+  function ashLoop(t) {
+    if (!ashWant) { ashRaf = null; return; }
+    if (document.hidden) { ashLast = 0; ashRaf = requestAnimationFrame(ashLoop); return; }
+    if (!ashLast) ashLast = t;
+    if (t - ashLast >= 33) { ashLast = t; frameAsh(t); }
+    ashRaf = requestAnimationFrame(ashLoop);
+  }
+
+  function startGrain() {
+    if (grainTimer || !grainCtx) return;
+    frameGrain(false);
+    grainTimer = setInterval(function () { if (!document.hidden) frameGrain(false); }, PERF.grainMs);
+  }
+  function stopGrain() {
+    if (grainTimer) { clearInterval(grainTimer); grainTimer = null; }
+    if (grainCtx && grainCnv) grainCtx.clearRect(0, 0, grainCnv.width, grainCnv.height);
+  }
+  function startAsh() {
+    ashWant = true;
+    if (ashRaf || !ashCtx) return;
+    ashLast = 0;
+    // paint one frame up front so the motes are there even if rAF is
+    // throttled hard (background tab, headless, reduced power mode)
+    frameAsh(performance.now());
+    ashRaf = requestAnimationFrame(ashLoop);
+  }
+  function stopAsh() {
+    ashWant = false;
+    if (ashRaf) { cancelAnimationFrame(ashRaf); ashRaf = null; }
+    if (ashCtx && ashCnv) ashCtx.clearRect(0, 0, ashCnv.width, ashCnv.height);
+  }
+
+  function crtRoll() {
+    if (!crt || !crtOn || !motionOk || document.hidden) return;
+    crt.classList.remove("roll");
+    void crt.offsetWidth;
+    crt.classList.add("roll");
+    setTimeout(function () { if (crt) crt.classList.remove("roll"); }, 460);
+  }
+
+  function setCrt(on, persist) {
+    crtOn = !!on;
+    if (persist) { try { localStorage.setItem("tqg-st-crt", crtOn ? "on" : "off"); } catch (e) {} }
+    document.body.classList.toggle("no-crt", !crtOn);
+    var tag = $("#crtTag");
+    if (tag) {
+      tag.classList.toggle("on", crtOn);
+      tag.title = crtOn ? "CRT LAYER ON — TYPE CRT TO DROP IT" : "CRT LAYER OFF — TYPE CRT TO RESTORE IT";
+    }
+    if (crtOn && motionOk) { startGrain(); startAsh(); }
+    else { stopGrain(); stopAsh(); }
+    return crtOn;
+  }
+
+  function initFx() {
+    if (grainCnv) { try { grainCtx = grainCnv.getContext("2d"); } catch (e) { grainCtx = null; } }
+    if (ashCnv) { try { ashCtx = ashCnv.getContext("2d"); } catch (e) { ashCtx = null; } }
+    sizeGrain(); sizeAsh();
+    setCrt(crtOn, false);
+    // occasional interference: one brighter grain frame plus a roll
+    setInterval(function () {
+      if (!fxLive() || Math.random() > 0.3) return;
+      frameGrain(true);
+      crtRoll();
+    }, 11000);
+  }
+  var crtTag = $("#crtTag");
+  if (crtTag) {
+    crtTag.addEventListener("click", function () {
+      setCrt(!crtOn, true);
+      click();
+      logLine("A:\\> CRT LAYER: " + (crtOn ? "ON" : "OFF"));
+    });
+  }
+
+  /* --------------------------------------------------------------
+     Reveal — the site assembles itself as you read it.
+     Driven off the .views scroll container rather than an
+     IntersectionObserver because inactive views are display:none,
+     and a hidden element never intersects anything.
+     -------------------------------------------------------------- */
+  var viewsEl = $("#views");
+  function checkReveals() {
+    if (!motionOk) return;
+    var v = $(".view.active");
+    if (!v) return;
+    var box = viewsEl ? viewsEl.getBoundingClientRect() : { bottom: window.innerHeight };
+    var items = v.querySelectorAll(".reveal:not(.in)");
+    for (var i = 0; i < items.length; i++) {
+      if (items[i].getBoundingClientRect().top < box.bottom - 28) items[i].classList.add("in");
+    }
+  }
+  function armReveals() {
+    if (!motionOk) return;
+    var v = $(".view.active");
+    if (!v) return;
+    Array.prototype.forEach.call(v.children, function (el) {
+      if (!el.classList || el.classList.contains("view")) return;
+      el.classList.add("reveal");
+      el.classList.remove("in");
+    });
+    requestAnimationFrame(checkReveals);
+    setTimeout(checkReveals, 700);
+  }
+  var revealQueued = false;
+  function queueReveal() {
+    if (revealQueued) return;
+    revealQueued = true;
+    requestAnimationFrame(function () { revealQueued = false; checkReveals(); });
+  }
+  if (viewsEl) viewsEl.addEventListener("scroll", queueReveal, { passive: true });
+  // safety net — nothing may be left invisible if a listener is missed
+  setInterval(checkReveals, 1500);
+
   // Status bar lives on
   setInterval(function () {
     if (!powered) return;
@@ -1637,6 +1911,18 @@
 
   showView("home", true);
   reflectPlatform();
+  initFx();
+  armReveals();
+
+  var fxResizeT = null;
+  window.addEventListener("resize", function () {
+    clearTimeout(fxResizeT);
+    fxResizeT = setTimeout(function () {
+      sizeGrain();
+      sizeAsh();
+      queueReveal();
+    }, 180);
+  });
 
   powerOn(); // it boots itself
 })();

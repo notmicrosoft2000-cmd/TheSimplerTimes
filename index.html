@@ -11,7 +11,7 @@
   <link rel="preconnect" href="https://fonts.googleapis.com">
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;700&family=VT323&display=swap" rel="stylesheet">
-  <link rel="stylesheet" href="css/style.css?v=8">
+  <link rel="stylesheet" href="css/style.css?v=9">
 </head>
 <body>
 
@@ -254,6 +254,7 @@
         <a class="nep-link" href="https://notmicrosoft2000-cmd.github.io/" title="back to the hub">NEPTUNE PRODUCTIONS [C]</a> ·
         <button class="console-btn" id="consoleBtn" type="button" title="COMMAND.COM — TOGGLE WITH `">A:\&gt;_</button>
         <span class="amb-icon" id="ambIcon" aria-hidden="true"><i></i><i></i><i></i></span>
+        <button class="fx-tag on" id="crtTag" type="button" title="CRT / STATIC LAYER — TOGGLE">CRT</button>
         <span class="ambience-status" id="ambTag">AMBIENCE</span>
         <span id="hitCounter" title="DO NOT CLICK THIS">000000</span> VISITS · <span id="recDate">1993.??.??</span> · <span id="recOs">????</span> · <span id="statusR">CONNECTED 2400 BPS</span>
       </span>
@@ -309,6 +310,16 @@
 
   <div class="cursor-light" id="cursorLight" aria-hidden="true"></div>
 
+  <!-- the screen it is pretending to be. pointer-events:none, always. -->
+  <div class="crt" id="crt" aria-hidden="true">
+    <div class="crt-scanlines"></div>
+    <div class="crt-vignette"></div>
+    <canvas class="crt-grain" id="crtGrain"></canvas>
+    <canvas class="crt-ash" id="crtAsh"></canvas>
+    <div class="crt-beam"></div>
+    <div class="crt-sweep"></div>
+  </div>
+
 </body>
-<script src="js/main.js?v=8"></script>
+<script src="js/main.js?v=9"></script>
 </html>
